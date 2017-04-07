@@ -13,33 +13,30 @@ Poppler version 0.24.5 with glib bindings or higher ( http://poppler.freedesktop
 
 Test Platforms 測試平台
 -----
-* ###Ubuntu 
+* ### Ubuntu  
 * Ubuntu version : Ubuntu 14.04.5 LTS  
 * gtk+-3.0 version : 3.12.2  
 * poppler-glib version : 0.24.5  
 ```
       sudo apt-get install libgtk-3-dev libpoppler-glib-dev
-
 ```
-* ###Mac 
+* ### Mac 
 * MacOS version : Sierra 10.12.1
 * gtk+-3.0 version : 3.20.6
 * poppler-glib version : 0.47.0
 ```
       brew install gtk+3 poppler gnome-icon-theme
-
 ```
 
-* ###Windows (under Msys2 32bit)
+* ### Windows (under Msys2 32bit)
 * Windows version : Version 1607 Build 14393  
 * gtk+-3.0 version : 3.22.10 
 * poppler-glib version : 0.52.0 
 ```
       pacman -S mingw-w64-i686-gtk3 mingw-w64-i686-poppler
-
 ```
 
-##Build
+### Build
 
 ```
      make
@@ -57,16 +54,17 @@ or
 Copy and paste text 文字複製以及貼上
 -----------
 
-###Ubuntu
+### Ubuntu
+
 After selecting text, users can paste with mouse middle button or use Ctrl+c to copy selected text and paste with Ctrl+v.  
 在文字選取完後,利用滑鼠中鍵貼上文字, 或是利用Ctrl+c複製文字並以Ctrl+v貼上文字
 
-###Windows
+### Windows
 
 Use mouse right button or Ctrl+v to paste after selecting text.  
 在文字選取完後,使用滑鼠右鍵或是Ctrl+v貼上文字
 
-###Mac  
+### Mac  
 
 Use mouse right button or Command+v to paste after selecting text.  
 在文字選取完後,使用滑鼠右鍵或是Command+v貼上文字
