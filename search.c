@@ -27,7 +27,7 @@
 #include "search.h"
 
 void find_exit_cb( GtkWidget *widget, gpointer user_data ){
- 
+  
  KEY_BUTTON_SEARCH = TRUE;
  
  gtk_widget_hide(findbar);
@@ -50,6 +50,11 @@ void find_exit_cb( GtkWidget *widget, gpointer user_data ){
 
  pre_mode = mode;
  mode = TEXT_SELECTION;
+ 
+ GdkScreen *screen = gdk_screen_get_default ();
+
+ if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) )
+  zoom_height();
  
 }
 
@@ -116,10 +121,10 @@ void search_n( GtkWidget *findbar ){
   }
   else{
 
-    if(pre_mode != ZOOM_IN &&  pre_mode != ZOOM_OUT)  
-     pre_mode = TEXT_SELECTION;
+   if(pre_mode != ZOOM_IN &&  pre_mode != ZOOM_OUT)  
+    pre_mode = TEXT_SELECTION;
 
-    find_next(findbar);
+   find_next(findbar);
   }
 
  }else if(mode == TEXT_SEARCH_PREV){
@@ -315,54 +320,55 @@ void find_prev( GtkWidget *findbar ){
  if(find_ptr){
  
   while( find_ptr ){
-    PopplerRectangle *rect = find_ptr->data;
-    PopplerRectangle tmp_rect;
+   PopplerRectangle *rect = find_ptr->data;
+   PopplerRectangle tmp_rect;
    
-    if( (gint)rect->y2 < (gint)rect->y1 ){
+   if( (gint)rect->y2 < (gint)rect->y1 ){
     
-     tmp_rect.x1 = rect->x1;
-     tmp_rect.y1 = rect->y2;
-     tmp_rect.x2 = rect->x2;
-     tmp_rect.y2 = rect->y1;
+    tmp_rect.x1 = rect->x1;
+    tmp_rect.y1 = rect->y2;
+    tmp_rect.x2 = rect->x2;
+    tmp_rect.y2 = rect->y1;
     
-    }else if( (gint)rect->y2 > (gint)rect->y1 ) {
+   }else if( (gint)rect->y2 > (gint)rect->y1 ) {
    
-     rect->y1 = page_height - rect->y1;
-     rect->y2 = page_height - rect->y2;
+    rect->y1 = page_height - rect->y1;
+    rect->y2 = page_height - rect->y2;
    
-     tmp_rect.x1 = rect->x1;
-     tmp_rect.y1 = rect->y2;
-     tmp_rect.x2 = rect->x2;
-     tmp_rect.y2 = rect->y1;
+    tmp_rect.x1 = rect->x1;
+    tmp_rect.y1 = rect->y2;
+    tmp_rect.x2 = rect->x2;
+    tmp_rect.y2 = rect->y1;
    
+   }
+   
+   if(!page)
+    page = poppler_document_get_page(doc, current_page_num);
+     
+   char *find_text = poppler_page_get_selected_text(page, POPPLER_SELECTION_GLYPH, &tmp_rect);
+   
+   if(find_text){
+    
+    char * pch;
+    pch = strstr(find_text, gtk_entry_get_text(GTK_ENTRY(findtext)));
+    
+    if( ! strcmp( find_text, gtk_entry_get_text(GTK_ENTRY(findtext)) ) || pch ){
+      
+     break;
+    }else{
+      
+     find_ptr = find_ptr->next;
     }
-   
-    if(!page)
-     page = poppler_document_get_page(doc, current_page_num);
      
-    char *find_text = poppler_page_get_selected_text(page, POPPLER_SELECTION_GLYPH, &tmp_rect);
-    if(find_text){
+   }// end of if(find_text)
     
-     char * pch;
-     pch = strstr(find_text, gtk_entry_get_text(GTK_ENTRY(findtext)));
-    
-     if( ! strcmp( find_text, gtk_entry_get_text(GTK_ENTRY(findtext)) ) || pch ){
-      
-      break;
-     }else{
-      
-      find_ptr = find_ptr->next;
-     }
-     
-    }// end of if(find_text)
-    
-    g_object_unref (G_OBJECT (page));
-    page = NULL;
+   g_object_unref (G_OBJECT (page));
+   page = NULL;
    
-   }//end of while( find_ptr )
-  }
+  }//end of while( find_ptr )
+ }
 
- } // end of if(!find_ptr) else
+} // end of if(!find_ptr) else
 
  if(find_ptr){
   
@@ -408,7 +414,6 @@ void find_prev( GtkWidget *findbar ){
      current_page_num = 0;
      break;
     }
-    
 
     if( current_page_num ==  find_current_page_num && word_not_found){
      break;
@@ -429,7 +434,6 @@ void find_prev( GtkWidget *findbar ){
      word_not_found = FALSE;
     }
    } // end of while(!matches)
-
 
    if( current_page_num != 0 ){
    

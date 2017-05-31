@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <glib.h>
@@ -128,7 +128,6 @@ void text_highlight(gint x1, gint y1, gint x2, gint y2){
 
    p = data + x * n_channels + y * rowstride; 
    
-   
    p[0] = (255-p[0]) ^ 0x00;
    p[1] = (255-p[1]) ^ 0xff;
    p[2] = (255-p[2]) ^ 0xff;
@@ -155,43 +154,20 @@ void invertArea (gint x1, gint y1, gint x2, gint y2){
  
  guchar *p;
  
- if( selected == 0 ){ 
-  
-  for ( x = x1; x < x2; x++ ){
-   for ( y = y1; y < y2; y++ ){
+ for ( x = x1; x < x2; x++ ){
+  for ( y = y1; y < y2; y++ ){
        
-    // Calculate pixel's offset into the data array. 
-    p = data + x * n_channels + y * rowstride;
+   // Calculate pixel's offset into the data array. 
+   p = data + x * n_channels + y * rowstride;
               
-    p[0] = 255 - p[0];
-    p[1] = 255 - p[1];
-    p[2] = 255 - p[2];
+   p[0] = 255 - p[0];
+   p[1] = 255 - p[1];
+   p[2] = 255 - p[2];
        
-   }
   }
+ }
  
-  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
-  selected = 1;
-  
- }
- else{
-  for ( x = x1; x < x2; x++ ){
-   for ( y = y1; y < y2; y++ ){
-       
-    // Calculate pixel's offset into the data array. 
-    p = data + x * n_channels + y * rowstride;
-       
-    p[0] = 255 - p[0];
-    p[1] = 255 - p[1];
-    p[2] = 255 - p[2];
-       
-   }
-  }
-
-  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
-  selected = 0;
-
- }
+ gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
  
 }
 

@@ -45,7 +45,6 @@ void page_change(void){
 
  char page_str[100];
  
- 
  if( mode == TEXT_SELECTION )
   sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[S]");
  else if ( mode == TEXT_HIGHLIGHT )
@@ -54,7 +53,6 @@ void page_change(void){
   sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[E]");
  else
   sprintf(page_str, "%s page %d/%d",file_name, current_page_num+1, poppler_document_get_n_pages(doc));
-  
  
  gtk_window_set_title(GTK_WINDOW(win), page_str);
 
@@ -65,41 +63,40 @@ void page_change(void){
   selection_region = NULL;
  }
 
-  if(last_region || selection_region ){
+ if(last_region || selection_region ){
    
-   cairo_region_t *invert_region;
+  cairo_region_t *invert_region;
    
-   invert_region = cairo_region_copy(selection_region);
-   if(mode == TEXT_SELECTION){
+  invert_region = cairo_region_copy(selection_region);
+  if(mode == TEXT_SELECTION){
     
+   invertRegion(invert_region);
+    
+   if( pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT ){
     invertRegion(invert_region);
-    
-    if( pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT ){
-     invertRegion(invert_region);
-    }
-    pre_mode = TEXT_SELECTION;
+   }
+   pre_mode = TEXT_SELECTION;
 
-   }
-   else if( mode == TEXT_HIGHLIGHT ){
-
-    invert_highlight_Region(invert_region, 1);
- 
-    if(invert_region)
-     cairo_region_destroy(invert_region);
-   }
-   
-   else if( mode == ERASE_TEXT_HIGHLIGHT ){
-    
-    invert_highlight_Region(invert_region, 1);
-    
-    if(invert_region)
-     cairo_region_destroy(invert_region);
-   
-   }
-   
-   gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
   }
+  else if( mode == TEXT_HIGHLIGHT ){
 
+   invert_highlight_Region(invert_region, 1);
+ 
+   if(invert_region)
+    cairo_region_destroy(invert_region);
+  }
+   
+  else if( mode == ERASE_TEXT_HIGHLIGHT ){
+    
+   invert_highlight_Region(invert_region, 1);
+    
+   if(invert_region)
+    cairo_region_destroy(invert_region);
+   
+  }
+   
+  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+ }
 
  page = poppler_document_get_page(doc, current_page_num);
 
@@ -108,40 +105,38 @@ void page_change(void){
  width = (gint)((page_width*zoom_factor)+0.5);
  height = (gint)((page_height*zoom_factor)+0.5);
 
+ cairo_surface_t *surface;
  
- cairo_surface_t *s;
+ surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
  
- s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
- 
- cr = cairo_create(s);
+ cr = cairo_create(surface);
 
  cairo_scale(cr, zoom_factor, zoom_factor);
 
  poppler_page_render(page, cr);
 
- cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
- cairo_set_source_rgb (cr, 1., 1., 1.);
+ cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
+ 
+ if(PDF_BACKGROUND_COLOR_CHANGED)
+  cairo_set_source_rgb (cr, background_color[0], background_color[1], background_color[2]);
+ else
+  cairo_set_source_rgb (cr, 1., 1., 1.);
+ 
  cairo_paint (cr);
 
  cairo_destroy (cr);
 
- pixbuf = gdk_pixbuf_get_from_surface(s, 0, 0, width, height);
+ pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
 
  if(temp_pixbuf != NULL){
   g_object_unref(temp_pixbuf);
  }
 
- cairo_surface_destroy (s);
+ cairo_surface_destroy (surface); 
  
  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
  
- gint l_width, l_height;
- gtk_layout_get_size (GTK_LAYOUT(layout), &l_width, &l_height);
- 
- if(zoom_factor > 1.0)
-  gtk_layout_set_size (GTK_LAYOUT(layout), width+30, height+1);
- else
-  gtk_layout_set_size (GTK_LAYOUT(layout), width, height+1);
+ gtk_layout_set_size (GTK_LAYOUT(layout), width, height+1);
  
  struct list_head *tmp;
 
@@ -149,7 +144,6 @@ void page_change(void){
 
   struct note *tmp1;
   tmp1= list_entry(tmp, struct note, list);
-  
   
   if( tmp1->page_num == current_page_num+1 ){
    const char* format = "<span foreground=\"black\" font=\"%d\">%s</span>";
@@ -211,7 +205,6 @@ prev_page(void) {
    GtkAdjustment *hadj, *vadj;
 
    hadj = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
-   
    vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
    
    gtk_adjustment_set_value(hadj, gtk_adjustment_get_upper(hadj) - gtk_adjustment_get_page_size(hadj) );
@@ -244,7 +237,6 @@ next_page(void) {
    GtkAdjustment *hadj, *vadj;
 
    hadj = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
-   
    vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
  
    gtk_adjustment_set_value(hadj, gtk_adjustment_get_page_size(hadj) - gtk_adjustment_get_upper(hadj));

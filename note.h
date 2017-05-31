@@ -28,14 +28,14 @@ void add_comment (void);
 
 void save_comment(void);
 
-void init_note( void );
+void init_note(void);
 
-void add_comment_cb (GtkWidget* w, gpointer data);
-
-void
-save_note_cb (GtkWidget* w, gpointer data);
+void add_comment_cb (GtkWidget* widget, gpointer data);
 
 void
-save_comment_cb (GtkWidget* w, gpointer data);
+save_note_cb (GtkWidget* widget, gpointer data);
+
+void
+save_comment_cb (GtkWidget* widget, gpointer data);
 
 #endif /* NOTE_H */

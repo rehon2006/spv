@@ -31,12 +31,13 @@ gchar *file_name;
 PopplerRectangle * areas;
 PopplerRectangle * areas_ptr;
 
-gint PAGE_VIEW_PADDING;
-
 gboolean word_not_found;
 GList *find_ptr, *find_ptr_head;
 
 int FONT_SIZE;
+
+gboolean PDF_BACKGROUND_COLOR_CHANGED; // true for changing new color, false for color white
+double background_color[3];
 
 double zoom_factor;
 
@@ -50,8 +51,6 @@ double page_height;
 
 GdkPixbuf *pixbuf;
 
-cairo_surface_t *s;
-
 gint current_page_num;
 gint find_current_page_num;
 
@@ -62,11 +61,6 @@ cairo_rectangle_int_t *ihr;
 cairo_region_t *
 create_region_from_poppler_region (GList *region, gdouble scale);
 
-void
-getPagePosition (gint widgetX, gint widgetY, gint *pageX, gint *pageY);
-
 void init_pdf(char *path);
-
-extern GtkWidget *m_PageImage;
 
 #endif /* PDF_H */

@@ -31,11 +31,11 @@ GtkWidget *scrolled_window;
 
 GtkWidget *toolbar;
 GtkWidget *comboBox;
-GtkCellRenderer *renderer;
+
 GtkToolItem *highlight_color;
 GdkPixbuf *hc_pixbuf;
 
-gboolean TOOL_BAR_VISIABLE;
+gboolean TOOL_BAR_VISIBLE;
 
 GtkTextBuffer *buffer;
 
@@ -43,7 +43,7 @@ GtkWidget *layout;
 
 GtkWidget *m_PageImage;
 
-GtkWidget *w;
+GtkWidget *comment;
 
 GtkWidget *event_box;
 
@@ -63,31 +63,24 @@ guint pre_keyval;
 
 gboolean cursor_enable;
 
-extern gboolean page_changed;
-
 int newline_y;
-
-int moved;
 
 int inverted;
 
-GtkAllocation l;
+GtkAllocation child_alloc;
 
 double start_x, start_y;
-double end_x, end_y;
 
 gint pre_sw_width;
 gint pre_eb_width;
 
 GString *selected_text;
 
-int width_offset;
+int width_offset, height_offset;
 
 gint have_selection;
 
-int selected;
-
-double m_x, m_y;
+double lstart_x, lstart_y;
 
 gint layout_motion_handler_id;
 gint layout_release_handler_id;
@@ -101,7 +94,6 @@ guint scroll_time;
 int scroll_zoom;
 
 gint event_box_button_press_handler_id;
-
 gint event_box_button_release_handler_id;
 
 struct note{
@@ -146,8 +138,11 @@ GtkWidget *zoominMi;
 GtkWidget *zoomoutMi;
     
 GtkWidget *zoomwidthMi;
+GtkWidget *zoomheightMi;
 
 GtkWidget *hide_toolbarMi;
+
+GtkWidget *change_background_colorMi;
 
 GtkWidget *goMi;
 GtkWidget *nextpageMi;
@@ -284,19 +279,5 @@ void
 copy_text(void);
 
 void init_gui(void);
-
-extern void zoom_in_cb(GtkWidget* widget, gpointer data);
-
-extern void zoom_out_cb(GtkWidget* widget, gpointer data);
-
-extern void save_note_cb (GtkWidget* widget, gpointer data);
-
-extern void add_comment_cb (GtkWidget* widget, gpointer data);
-
-extern void prev_page_cb(GtkWidget* widget, gpointer data);
-
-extern void next_page_cb(GtkWidget* widget, gpointer data);
-
-extern void zoom_width_cb(GtkWidget* widget, gpointer data);
 
 #endif /* GUI_H */

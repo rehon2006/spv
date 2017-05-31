@@ -22,12 +22,15 @@
 #include "main.h"
 
 void zoom_in(void);
-void zoom_in_cb(GtkWidget* w, gpointer data);
+void zoom_in_cb(GtkWidget* widget, gpointer data);
 
 void zoom_out(void);
-void zoom_out_cb(GtkWidget* w, gpointer data);
+void zoom_out_cb(GtkWidget* widget, gpointer data);
 
 void zoom_width(void);
-void zoom_width_cb(GtkWidget* w, gpointer data);
+void zoom_width_cb(GtkWidget* widget, gpointer data);
+
+void zoom_height(void);
+void zoom_height_cb(GtkWidget* widget, gpointer data);
 
 #endif /* ZOOM_H */

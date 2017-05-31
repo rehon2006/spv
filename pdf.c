@@ -41,6 +41,12 @@ void init_pdf( char *path ){
  
  zoom_factor = 1.0;
  
+ PDF_BACKGROUND_COLOR_CHANGED = FALSE;
+ 
+ background_color[0] = 199/255.0;
+ background_color[1] = 237/255.0;
+ background_color[2] = 204/255.0;
+ 
  GFile *file= g_file_new_for_commandline_arg(path);
  
  doc = poppler_document_new_from_gfile(file, NULL, NULL, &err);
@@ -100,26 +106,32 @@ void init_pdf( char *path ){
  
  width = (gint)((page_width*zoom_factor)+0.5);
  height = (gint)((page_height*zoom_factor)+0.5);
-  
- s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+
+ cairo_surface_t *surface;
  
- cr = cairo_create(s);
+ surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+ 
+ cr = cairo_create(surface);
     
  cairo_save(cr);
  cairo_scale(cr, zoom_factor, zoom_factor);
 
  poppler_page_render(page, cr); 
-
- cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
- cairo_set_source_rgb (cr, 1., 1., 1.);
+ 
+ cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
+ 
+ if(PDF_BACKGROUND_COLOR_CHANGED)
+  cairo_set_source_rgb (cr, background_color[0], background_color[1], background_color[2]);
+ else
+  cairo_set_source_rgb (cr, 1., 1., 1.);
   
  cairo_paint (cr);
 
  cairo_destroy (cr);
 
- pixbuf = gdk_pixbuf_get_from_surface(s, 0, 0, width, height);
-    
- cairo_surface_destroy (s);  
+ pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
+ 
+ cairo_surface_destroy (surface);  
  
  m_PageImage = gtk_image_new ();
  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
@@ -129,72 +141,27 @@ void init_pdf( char *path ){
 cairo_region_t *
 create_region_from_poppler_region (GList *region, gdouble scale){
 
- GList *l;
+ GList* list;
  cairo_region_t *retval;
  retval = cairo_region_create ();
 
- for (l = region; l; l = g_list_next (l)) {
+ for (list = region; list; list = g_list_next (list)) {
 
   PopplerRectangle   *rectangle;
   cairo_rectangle_int_t rect;
-  rectangle = (PopplerRectangle *)l->data;
+  
+  rectangle = (PopplerRectangle *)list->data;
+  
   rect.x = (gint) ((rectangle->x1 * scale) + 0.5);
   rect.y = (gint) ((rectangle->y1 * scale) + 0.5);
   rect.width  = (gint) (((rectangle->x2 - rectangle->x1) * scale) + 0.5);
 		rect.height = (gint) (((rectangle->y2 - rectangle->y1) * scale) + 0.5);
+		
   cairo_region_union_rectangle (retval, &rect);
+  
   poppler_rectangle_free (rectangle);
  }
 
  return retval;
 
-}
-
-void
-getPagePosition (gint widgetX, gint widgetY, gint *pageX, gint *pageY){
-
- gint horizontalPadding = PAGE_VIEW_PADDING;
- gint verticalPadding = PAGE_VIEW_PADDING;
- GdkPixbuf *page = gtk_image_get_pixbuf (GTK_IMAGE (m_PageImage));
-
- if ( NULL != page ){
-
-  GtkAllocation *alloc = g_new(GtkAllocation,1);
-  gtk_widget_get_allocation(m_PageImage, alloc);
-
-  horizontalPadding =
-     (alloc->width - gdk_pixbuf_get_width (page)) / 2;
-  verticalPadding =
-     (alloc->height - gdk_pixbuf_get_height (page)) / 2;
-
- }
-    
- double h_scroll, v_scroll; 
- GtkAdjustment *hAdjustment = gtk_scrolled_window_get_hadjustment (
-         GTK_SCROLLED_WINDOW (scrolled_window));
- h_scroll =  gtk_adjustment_get_value (hAdjustment);
-
- GtkAdjustment *vAdjustment = gtk_scrolled_window_get_vadjustment (
-         GTK_SCROLLED_WINDOW (scrolled_window));
- v_scroll =  gtk_adjustment_get_value (vAdjustment);
-
-
- GtkAllocation w_alloc;
- gtk_widget_get_allocation (event_box, &w_alloc);
-
- GtkAllocation win_alloc;
- gtk_widget_get_allocation (win, &win_alloc);
-   
- *pageX = widgetX - horizontalPadding + (gint)h_scroll - width_offset ;
-
- #if GTK_CHECK_VERSION(3,12,3)
-  *pageY = widgetY - verticalPadding + (gint)v_scroll;
- #else
-  if(TOOL_BAR_VISIABLE){
-   *pageY = widgetY - verticalPadding + (gint)v_scroll - 70;
-  }else{
-   *pageY = widgetY - verticalPadding + (gint)v_scroll - 35;
-  }
- #endif
-    
 }

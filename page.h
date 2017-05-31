@@ -28,9 +28,9 @@ gboolean page_changed;
 void page_change(void);
 
 void prev_page(void);
-void prev_page_cb(GtkWidget* w, gpointer data);
+void prev_page_cb(GtkWidget* widget, gpointer data);
 
 void next_page(void);
-void next_page_cb(GtkWidget* w, gpointer data);
+void next_page_cb(GtkWidget* widget, gpointer data);
 
 #endif /* PAGE_H */
