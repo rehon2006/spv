@@ -28,7 +28,142 @@
 #include "zoom.h"
 
 void
+zoom_dual_page(void) {
+ 
+ //right page
+ 
+ GdkPixbuf *temp_pixbuf;
+ temp_pixbuf = pixbuf;
+ 
+ GdkScreen *screen = gdk_screen_get_default ();
+ char tmp_zf[10];
+ 
+ if(page_width >= page_height)
+  sprintf(tmp_zf, "%.3f", ( (gdk_screen_get_width(screen)+1 )/2.0/ page_width));
+ else{
+  
+  #if GTK_CHECK_VERSION(3,18,10)
+  sprintf(tmp_zf, "%.3f", ( (gdk_screen_get_width(screen)-4 )/2.0/ page_width));
+  #else
+  sprintf(tmp_zf, "%.3f", ( (gdk_screen_get_width(screen)-18 )/2.0/ page_width));
+  #endif
+ }
+ 
+ double width_zf = atof(tmp_zf);
+ 
+ if(zoom_factor == width_zf)
+  return;
+ else
+  zoom_factor = width_zf;
+ 
+ gint width, height;
+ 
+ width = (gint)((page_width*width_zf)+0.5);
+ height = (gint)((page_height*width_zf)+0.5);
+ 
+ cairo_surface_t *surface;
+ surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+ 
+ cairo_t* cr;
+ cr = cairo_create(surface);
+ 
+ cairo_scale(cr, width_zf, width_zf);
+ 
+ gint page_num = poppler_document_get_n_pages(doc);
+ 
+ if( current_page_num+1 <= page_num-1 ){
+  
+  page = poppler_document_get_page(doc, current_page_num+1);
+  
+ }
+ 
+ poppler_page_render(page, cr);
+
+ cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
+
+ if(PDF_BACKGROUND_COLOR_CHANGED)
+  cairo_set_source_rgb (cr, background_color[0], background_color[1], background_color[2]);
+ else
+  cairo_set_source_rgb (cr, 1., 1., 1.);
+ 
+ cairo_paint (cr);
+
+ cairo_destroy (cr);
+
+ pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
+ 
+ if(temp_pixbuf != NULL){
+  g_object_unref(temp_pixbuf);
+ }
+ 
+ cairo_surface_destroy (surface);
+
+ gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+
+ g_object_unref (G_OBJECT (page));
+ page = NULL;
+ 
+ gtk_layout_set_size (GTK_LAYOUT(layout), width, height);
+ 
+ //highlight region
+ struct list_head *tmp;
+
+ list_for_each(tmp, &HR_HEAD){
+
+  struct highlight_region *tmp1;
+  tmp1= list_entry(tmp, struct highlight_region, list);
+  
+  if(tmp1->page_num ==  current_page_num +2 ){
+     
+   text_highlight_release((int)(tmp1->x*zoom_factor), 
+                          (int)(tmp1->y*zoom_factor), 
+                          (int)((tmp1->x+tmp1->width)*zoom_factor), 
+                          (int)((tmp1->y+tmp1->height)*zoom_factor), 
+                          tmp1->color_name,
+                          1); 
+   
+  }
+
+ }
+ //highlight region
+ 
+ //comments
+ list_for_each(tmp, &NOTE_HEAD){
+
+  struct note *tmp1;
+  tmp1= list_entry(tmp, struct note, list);
+  
+  if( tmp1->page_num == current_page_num+2 ){
+  
+    const char* format;
+    
+    if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ) 
+     format = "<span foreground=\"yellow\" font=\"%d\">%s</span>";
+    else
+     format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+    
+    char *markup = g_markup_printf_escaped(format, (gint)(FONT_SIZE*zoom_factor), 
+                                           gtk_label_get_text(GTK_LABEL(tmp1->comment)));
+   
+    gtk_label_set_markup(GTK_LABEL(tmp1->comment), markup);
+    g_free(markup);
+    
+    gtk_widget_show(tmp1->comment);
+   }else if( tmp1->page_num != current_page_num+1 ){
+    
+    gtk_widget_hide(tmp1->comment);
+   }
+
+}
+//comments
+ 
+}
+
+void
 zoom_in(void) {
+ 
+ if(lpage)
+  return;
  
  if (zoom_factor != 5.0 && zoom_factor <= 5.0){
 
@@ -43,9 +178,11 @@ zoom_in(void) {
    invert_region = cairo_region_copy(selection_region);
    
    if(mode == TEXT_SELECTION){
-    invertRegion(invert_region);
+    invertRegion(invert_region,1);
+    
     if( pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT ){
-     invertRegion(invert_region);
+     invertRegion(invert_region,1);
+     
     }
     pre_mode = TEXT_SELECTION;
 
@@ -75,7 +212,6 @@ zoom_in(void) {
   height = (gint)((page_height*zoom_factor)+0.5);
 
   cairo_surface_t *surface;
-  
   surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
 
   cairo_t* cr;
@@ -118,7 +254,7 @@ zoom_in(void) {
   g_object_unref (G_OBJECT (page));
   page = NULL;
 
-  gtk_layout_set_size (GTK_LAYOUT(layout), width+5, height+1);
+  gtk_layout_set_size (GTK_LAYOUT(layout), width, height);
  
   GList *list, *iter;
   list = gtk_container_get_children (GTK_CONTAINER (layout));
@@ -132,8 +268,14 @@ zoom_in(void) {
     gint wx, wy;
     
     gtk_widget_translate_coordinates(child, gtk_widget_get_toplevel(child), 0, 0,  &wx, &wy);
-     
-    const char* format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+    
+    const char* format;
+    
+    if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ) 
+     format = "<span foreground=\"yellow\" font=\"%d\">%s</span>";
+    else
+     format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+    
     char *markup = g_markup_printf_escaped(format, (gint)(FONT_SIZE*zoom_factor), 
                                             gtk_label_get_text(GTK_LABEL(child)));
                                             
@@ -154,25 +296,30 @@ zoom_in(void) {
 
    struct highlight_region *tmp1;
    tmp1= list_entry(tmp, struct highlight_region, list);
-  
+   
    if( tmp1->page_num == current_page_num + 1 ){
    
     text_highlight_release((int)(tmp1->x*zoom_factor), 
                            (int)(tmp1->y*zoom_factor), 
                            (int)((tmp1->x+tmp1->width)*zoom_factor), 
                            (int)((tmp1->y+tmp1->height)*zoom_factor), 
-                           tmp1->color_name);
+                           tmp1->color_name,
+                           1);
    
    }
-
+   
   } 
-
- 
+  
+  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+   invertArea(0 ,0 ,width ,height,1);
+   if(lpage)
+    invertArea(0 ,0 ,width ,height,2);
+  }
+  
   if( find_ptr ){
    invert_search_region();
   }
  
-
   if(mode != ZOOM_IN){
    if(mode != ZOOM_OUT)
     pre_mode = mode;
@@ -185,19 +332,90 @@ zoom_in(void) {
 
 void
 zoom_in_cb(GtkWidget* widget, gpointer data) {
-
+ 
  zoom_in();
 
 }
 
 void
 zoom_width(void) {
-
+ 
+ //zoom_width after leaving full-screen mode
+ if(lm_PageImage){
+  
+  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(dual_pageMi) ) ){
+   
+   GtkAllocation win_alloc;
+   gtk_widget_get_allocation (win, &win_alloc);
+   
+   GtkAllocation mb_alloc;
+   gtk_widget_get_allocation (menubar, &mb_alloc);
+   
+   GtkAllocation eb_alloc;
+   gtk_widget_get_allocation (event_box, &eb_alloc);
+   
+   GtkAllocation sw_alloc;
+   gtk_widget_get_allocation (scrolled_window, &sw_alloc);
+   
+   height_offset = ( win_alloc.height-mb_alloc.height-3 - eb_alloc.height)/4;
+   
+   if(height_offset < 0)
+    height_offset = 0;
+   
+   int dp_width = (int)(zoom_factor*page_width);
+   
+   //event_box
+   if( page_width >= page_height ){
+   
+    gtk_layout_move(GTK_LAYOUT(layout), event_box,dp_width+1, height_offset);
+    gtk_layout_move(GTK_LAYOUT(layout), levent_box,0, height_offset);
+   
+   }
+   else{
+   
+    gtk_layout_move(GTK_LAYOUT(layout), event_box,dp_width+1, height_offset);
+    gtk_layout_move(GTK_LAYOUT(layout), levent_box,0, height_offset);
+   
+   }
+   //event_box
+   
+   //comment
+   struct list_head *tmp;
+ 
+   list_for_each(tmp, &NOTE_HEAD){ 
+  
+    struct note *tmp1;
+    tmp1= list_entry(tmp, struct note, list);
+   
+    if(tmp1->page_num == current_page_num + 1){
+    
+     gtk_layout_move(GTK_LAYOUT(layout),
+         tmp1->comment,
+         (gint)(tmp1->x*zoom_factor),
+         (gint)(tmp1->y*zoom_factor)+height_offset);
+   
+    }
+    else if(tmp1->page_num == current_page_num + 2){
+     
+     gtk_layout_move(GTK_LAYOUT(layout),
+         tmp1->comment,
+         (gint)(tmp1->x*zoom_factor)+dp_width+1,
+         (gint)(tmp1->y*zoom_factor)+height_offset);
+   
+    }
+   
+   }
+   //comment
+   
+  }
+  
+  return;
+ }
+ 
  if(selection_region){
    cairo_region_destroy(selection_region);
    selection_region = NULL;
  }
-
 
  if(last_region || selection_region ){
    
@@ -206,10 +424,10 @@ zoom_width(void) {
   invert_region = cairo_region_copy(selection_region);
   if(mode == TEXT_SELECTION){
 
-   invertRegion(invert_region);
+   invertRegion(invert_region,1);
     
    if( pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT ){
-    invertRegion(invert_region);
+    invertRegion(invert_region,1);
    }
    pre_mode = TEXT_SELECTION;
 
@@ -225,42 +443,19 @@ zoom_width(void) {
   gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
  }
 
- GtkAdjustment *hadj, *vadj;
-
- hadj = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
- vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
-
  GdkScreen *screen = gdk_screen_get_default ();
  gint screen_height = gdk_screen_get_height(screen);
  
  double width_zf;
  
- if( page_width >= page_height ){ //landscape
+ GtkAllocation sw_alloc;
+ gtk_widget_get_allocation (scrolled_window, &sw_alloc);
  
-  char tmp_zf[10];
-   
-  #if GTK_CHECK_VERSION(3,12,3)
-   sprintf(tmp_zf, "%.3f", ( gdk_screen_get_width(screen) - 8 ) / page_width);
-  #else
-   sprintf(tmp_zf, "%.3f", ( gdk_screen_get_width(screen) - 21 ) / page_width);
-  #endif 
-  
-  width_zf = atof(tmp_zf);
-  
- }
- else{ //portrait, page_height > page_width
-  
-  char tmp_zf[10];
-  
-  #if GTK_CHECK_VERSION(3,12,3)
-   sprintf(tmp_zf, "%.3f", ( gdk_screen_get_width(screen) - 8 ) / page_width);
-  #else
-   sprintf(tmp_zf, "%.3f", ( gdk_screen_get_width(screen) - 21 ) / page_width);
-  #endif 
-  
-  width_zf = atof(tmp_zf);
-  
- }
+ #if GTK_CHECK_VERSION(3,18,10)
+ width_zf = (sw_alloc.width - 2)/page_width;
+ #else
+ width_zf = (sw_alloc.width - 2 - 12 )/page_width;
+ #endif
  
  if(zoom_factor == width_zf)
   return;
@@ -272,25 +467,27 @@ zoom_width(void) {
 
  gint width, height;
 
- width = (gint)((page_width*width_zf)+0.5);
- height = (gint)((page_height*width_zf)+0.5);
-
- cairo_surface_t *surface;
+ width = (gint)((page_width*zoom_factor)+0.5);
+ height = (gint)((page_height*zoom_factor)+0.5);
  
+ cairo_surface_t *surface;
  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
  
  cairo_t* cr;
- 
  cr = cairo_create(surface);
 
- cairo_scale(cr, width_zf, width_zf);
-
+ cairo_scale(cr, zoom_factor, zoom_factor);
+ 
  if(page == NULL){
+  
   gint page_num = poppler_document_get_n_pages(doc);
-  if(current_page_num > page_num-1) current_page_num = page_num-1;
+  
+  if(current_page_num > page_num-1) 
+   current_page_num = page_num-1;
+  
   page = poppler_document_get_page(doc, current_page_num);
  }
-
+ 
  poppler_page_render(page, cr);
  
  cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
@@ -332,7 +529,13 @@ zoom_width(void) {
    
    gtk_widget_translate_coordinates(child, gtk_widget_get_toplevel(child), 0, 0,  &wx, &wy);
 
-   const char* format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+   const char* format;
+    
+   if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ) 
+    format = "<span foreground=\"yellow\" font=\"%d\">%s</span>";
+   else
+    format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+   
    char *markup = g_markup_printf_escaped(format, (gint)(FONT_SIZE*zoom_factor), 
                                                    gtk_label_get_text(GTK_LABEL(child)));
                                                    
@@ -356,12 +559,23 @@ zoom_width(void) {
 
   if( tmp1->page_num == current_page_num + 1 ){
     
-   text_highlight_release((int)(tmp1->x*zoom_factor), (int)(tmp1->y*zoom_factor), (int)((tmp1->x+tmp1->width)*zoom_factor), (int)((tmp1->y+tmp1->height)*zoom_factor), tmp1->color_name);
+   text_highlight_release((int)(tmp1->x*zoom_factor), 
+                          (int)(tmp1->y*zoom_factor), 
+                          (int)((tmp1->x+tmp1->width)*zoom_factor), 
+                          (int)((tmp1->y+tmp1->height)*zoom_factor), 
+                          tmp1->color_name,
+                          1);
     
   }
 
  }
-
+ 
+ if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+  invertArea(0 ,0 ,width ,height,1);
+  if(lpage)
+   invertArea(0 ,0 ,width ,height,2);
+ }
+ 
  if( find_ptr ){
   invert_search_region();
  }
@@ -377,7 +591,112 @@ zoom_width_cb(GtkWidget* widget, gpointer data) {
 
 void
 zoom_height(void) {
-
+ 
+ GtkAllocation win_alloc;
+ gtk_widget_get_allocation (win, &win_alloc);
+ 
+ GtkAllocation sw_alloc;
+ gtk_widget_get_allocation (scrolled_window, &sw_alloc);
+ 
+ GtkAllocation mb_alloc;
+ gtk_widget_get_allocation (menubar, &mb_alloc);
+ 
+ GtkAllocation tb_alloc;
+ gtk_widget_get_allocation(toolbar, &tb_alloc);
+ 
+ GtkAllocation fb_alloc;
+ gtk_widget_get_allocation(findbar, &fb_alloc);
+ 
+ if(lpage){
+  
+  if(page_width < page_height)
+   return;
+  
+  int dp_width = (int)(zoom_factor*page_width);
+  
+  if(!TOOL_BAR_VISIBLE){
+  
+   GtkAllocation eb_alloc;
+   gtk_widget_get_allocation (event_box, &eb_alloc);
+  
+   if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(full_screenMi) ) ){
+    
+    GdkScreen *screen = gdk_screen_get_default ();
+    int screen_height = gdk_screen_get_height(screen);
+    
+    height_offset = ( screen_height - 2 - eb_alloc.height )/2;
+    
+   }
+   else
+    height_offset = ( win_alloc.height-mb_alloc.height-3 - eb_alloc.height)/2;
+   
+   int dp_width = (int)(zoom_factor*page_width);
+   
+   if( page_width >= page_height ){
+    
+    gtk_layout_move(GTK_LAYOUT(layout), event_box,dp_width+1, height_offset);
+    gtk_layout_move(GTK_LAYOUT(layout), levent_box,0, height_offset);
+    
+   }
+   else{
+   
+    gtk_layout_move(GTK_LAYOUT(layout), event_box,dp_width+1, height_offset);
+    gtk_layout_move(GTK_LAYOUT(layout), levent_box,0, height_offset);
+   
+   }
+   
+  }
+  else{
+  
+   GtkAllocation eb_alloc;
+   gtk_widget_get_allocation (event_box, &eb_alloc);
+   
+   height_offset = ( win_alloc.height-tb_alloc.height-mb_alloc.height-4 - eb_alloc.height )/2;
+  
+   if( page_width >= page_height ){
+    
+    gtk_layout_move(GTK_LAYOUT(layout), event_box,dp_width+1, height_offset);
+    gtk_layout_move(GTK_LAYOUT(layout), levent_box,0, height_offset);
+    
+   }
+   else{
+    
+    gtk_layout_move(GTK_LAYOUT(layout), event_box,dp_width+1, height_offset);
+    gtk_layout_move(GTK_LAYOUT(layout), levent_box,0, height_offset);
+    
+   }
+   
+  }
+  
+  struct list_head *tmp;
+ 
+  list_for_each(tmp, &NOTE_HEAD){ 
+  
+   struct note *tmp1;
+   tmp1= list_entry(tmp, struct note, list);
+   
+   if(tmp1->page_num == current_page_num + 1){
+    
+    gtk_layout_move(GTK_LAYOUT(layout),
+         tmp1->comment,
+         (gint)(tmp1->x*zoom_factor),
+         (gint)(tmp1->y*zoom_factor)+height_offset);
+   
+   }
+   else if(tmp1->page_num == current_page_num + 2){
+    
+    gtk_layout_move(GTK_LAYOUT(layout),
+         tmp1->comment,
+         (gint)(tmp1->x*zoom_factor)+dp_width+1,
+         (gint)(tmp1->y*zoom_factor)+height_offset);
+   
+   }
+   
+  }
+  
+  return;
+ }
+ 
  if(selection_region){
   cairo_region_destroy(selection_region);
   selection_region = NULL;
@@ -390,10 +709,10 @@ zoom_height(void) {
   invert_region = cairo_region_copy(selection_region);
   if(mode == TEXT_SELECTION){
 
-   invertRegion(invert_region);
+   invertRegion(invert_region, 1);
     
    if( pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT ){
-    invertRegion(invert_region);
+    invertRegion(invert_region,1);
    }
    pre_mode = TEXT_SELECTION;
 
@@ -414,40 +733,18 @@ zoom_height(void) {
  
  double width_zf;
  
- GtkAllocation win_alloc;
- gtk_widget_get_allocation (win, &win_alloc);
- 
- GtkAllocation sw_alloc;
- gtk_widget_get_allocation (scrolled_window, &sw_alloc);
- 
- GtkAllocation mb_alloc;
- gtk_widget_get_allocation (menubar, &mb_alloc);
- 
- GtkAllocation tb_alloc;
- gtk_widget_get_allocation (toolbar, &tb_alloc);
- 
- GtkAllocation fb_alloc;
- gtk_widget_get_allocation (findbar, &fb_alloc);
-  
- if( page_width >= page_height ){ //landscape
+ if ( !gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(full_screenMi) ) ){
  
   if(TOOL_BAR_VISIBLE){
    
    if( KEY_BUTTON_SEARCH ){
     
-    
-    if( screen_height == 768 )
-     width_zf = (win_alloc.height-tb_alloc.height-mb_alloc.height*1.2)/page_height;
-    else if ( screen_height == 1080 ) //for 1920x1080
-     width_zf = (win_alloc.height-tb_alloc.height-fb_alloc.height-mb_alloc.height)/page_height;
+    width_zf = (win_alloc.height-tb_alloc.height-mb_alloc.height-4)/page_height;
     
    }
    else{
     
-    if( screen_height == 768 )
-     width_zf = (win_alloc.height-tb_alloc.height-fb_alloc.height-mb_alloc.height*1.3)/page_height;
-    else if( screen_height == 1080 )//for 1920x1080
-     width_zf = (win_alloc.height-tb_alloc.height-fb_alloc.height*2-mb_alloc.height*1.2)/page_height;
+    width_zf = (win_alloc.height-tb_alloc.height-mb_alloc.height-fb_alloc.height-5)/page_height;
     
    }
    
@@ -455,46 +752,41 @@ zoom_height(void) {
   else{ // toolbar is not visible
   
    if( KEY_BUTTON_SEARCH ){
-   
-    if( screen_height == 768 )
-     width_zf = (win_alloc.height-mb_alloc.height*1.19)/page_height;
-    else if ( screen_height == 1080 ) //for 1920x1080
-     width_zf = (win_alloc.height-tb_alloc.height-mb_alloc.height)/page_height;
-   
+    
+    width_zf = (win_alloc.height-mb_alloc.height-3)/page_height;
+    
    }
    else{
-  
-    if( screen_height == 768 ) 
-     width_zf = (win_alloc.height-tb_alloc.height-mb_alloc.height*0.9)/page_height;
-    else if( screen_height == 1080 )//for 1920x1080
-     width_zf = (win_alloc.height-tb_alloc.height-fb_alloc.height-mb_alloc.height)/page_height;
-   
+    
+    width_zf = (win_alloc.height-tb_alloc.height-mb_alloc.height+3)/page_height;
+    
    }
    
   }
- 
  }
- else{ //portrait 
-  
+ else{ //fullscreen mode
+ 
   if(TOOL_BAR_VISIBLE){
    
-   if( screen_height == 768 )
-    width_zf = (win_alloc.height-tb_alloc.height-mb_alloc.height*1.2)/page_height;
-   else if ( screen_height == 1080 ) //for 1920x1080
-    width_zf = (win_alloc.height-tb_alloc.height-fb_alloc.height-mb_alloc.height)/page_height;
+   if( KEY_BUTTON_SEARCH ){
+    width_zf = (screen_height-2 - tb_alloc.height-1)/page_height;
+   }
+   else{
+    width_zf = (screen_height-2 - tb_alloc.height - fb_alloc.height-2)/page_height;
+   }
+   
+  }else{
   
-  }
-  else{
-  
-   if( screen_height == 768 ) 
-    width_zf = (win_alloc.height-mb_alloc.height*1.2)/page_height;
-   else if( screen_height == 1080 )//for 1920x1080
-    width_zf = (win_alloc.height-tb_alloc.height-mb_alloc.height)/page_height;
+   if( KEY_BUTTON_SEARCH ){
+    width_zf = (screen_height-2)/page_height;
+   }
+   else{
+    width_zf = (screen_height -2 - fb_alloc.height-1)/page_height;
+   }
    
   }
-  
  }
-  
+ 
  if( zoom_factor == width_zf )
   return;
  else
@@ -509,18 +801,19 @@ zoom_height(void) {
  height = (gint)((page_height*width_zf)+0.5);
  
  cairo_surface_t *surface;
- 
  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
  
  cairo_t* cr;
- 
  cr = cairo_create(surface);
  
  cairo_scale(cr, width_zf, width_zf);
 
  if(page == NULL){
   gint page_num = poppler_document_get_n_pages(doc);
-  if(current_page_num > page_num-1) current_page_num = page_num-1;
+  
+  if(current_page_num > page_num-1) 
+   current_page_num = page_num-1;
+   
   page = poppler_document_get_page(doc, current_page_num);
  }
  
@@ -540,7 +833,6 @@ zoom_height(void) {
  pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
  
  if(temp_pixbuf != NULL){
-  g_message("temp_pixbuf != NULL");
   g_object_unref(temp_pixbuf);
  }
  
@@ -566,7 +858,13 @@ zoom_height(void) {
   
    gtk_widget_translate_coordinates(child, gtk_widget_get_toplevel(child), 0, 0,  &wx, &wy);
 
-   const char* format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+   const char* format;
+    
+   if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ) 
+    format = "<span foreground=\"yellow\" font=\"%d\">%s</span>";
+   else
+    format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+    
    char *markup = g_markup_printf_escaped(format, (gint)(FONT_SIZE*zoom_factor), 
                                                   gtk_label_get_text(GTK_LABEL(child)));
                                                   
@@ -590,16 +888,27 @@ zoom_height(void) {
 
    if( tmp1->page_num == current_page_num + 1 ){
     
-    text_highlight_release((int)(tmp1->x*zoom_factor), (int)(tmp1->y*zoom_factor), (int)((tmp1->x+tmp1->width)*zoom_factor), (int)((tmp1->y+tmp1->height)*zoom_factor), tmp1->color_name);
+    text_highlight_release((int)(tmp1->x*zoom_factor), 
+                           (int)(tmp1->y*zoom_factor), 
+                           (int)((tmp1->x+tmp1->width)*zoom_factor), 
+                           (int)((tmp1->y+tmp1->height)*zoom_factor), 
+                           tmp1->color_name,
+                           1);
     
    }
 
   }
-
+  
+  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+   invertArea(0 ,0 ,width ,height,1);
+   if(lpage)
+    invertArea(0 ,0 ,width ,height,2);
+  }
+  
   if( find_ptr ){
    invert_search_region();
   }
-
+ 
 }
 
 void
@@ -611,6 +920,9 @@ zoom_height_cb(GtkWidget* widget, gpointer data) {
 
 void
 zoom_out(void) {
+ 
+ if(lpage)
+  return;
  
  if (zoom_factor != 1.0 && zoom_factor >= 1.0){
 
@@ -626,10 +938,10 @@ zoom_out(void) {
    invert_region = cairo_region_copy(selection_region);
    if(mode == TEXT_SELECTION){
 
-    invertRegion(invert_region);
+    invertRegion(invert_region,1);
    
     if( pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT ){
-     invertRegion(invert_region);
+     invertRegion(invert_region,1);
     }
     pre_mode = TEXT_SELECTION;
 
@@ -664,11 +976,9 @@ zoom_out(void) {
   height = (gint)((page_height*zoom_factor)+0.5);
 
   cairo_surface_t *surface;
-  
   surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
   
   cairo_t* cr;
-  
   cr = cairo_create(surface);
 
   cairo_scale(cr, zoom_factor, zoom_factor);
@@ -705,7 +1015,7 @@ zoom_out(void) {
   g_object_unref (G_OBJECT (page));
   page = NULL;
   
-  gtk_layout_set_size (GTK_LAYOUT(layout), width, height+1);
+  gtk_layout_set_size (GTK_LAYOUT(layout), width, height);
 
   GList *list, *iter;
   list = gtk_container_get_children (GTK_CONTAINER (layout));
@@ -724,7 +1034,13 @@ zoom_out(void) {
     
     gtk_widget_get_allocation (child, &al);
 
-    const char* format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+    const char* format;
+    
+    if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ) 
+     format = "<span foreground=\"yellow\" font=\"%d\">%s</span>";
+    else
+     format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+    
     char *markup = g_markup_printf_escaped(format, (gint)(FONT_SIZE*zoom_factor), 
                                                    gtk_label_get_text(GTK_LABEL(child)));
                                                    
@@ -744,12 +1060,23 @@ zoom_out(void) {
    
    if( tmp1->page_num == current_page_num + 1 ){
     
-    text_highlight_release((int)(tmp1->x*zoom_factor), (int)(tmp1->y*zoom_factor), (int)((tmp1->x+tmp1->width)*zoom_factor), (int)((tmp1->y+tmp1->height)*zoom_factor), tmp1->color_name);
+    text_highlight_release((int)(tmp1->x*zoom_factor), 
+                           (int)(tmp1->y*zoom_factor), 
+                           (int)((tmp1->x+tmp1->width)*zoom_factor), 
+                           (int)((tmp1->y+tmp1->height)*zoom_factor), 
+                           tmp1->color_name,
+                           1);
     
    }
 
   }
-
+  
+  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+   invertArea(0 ,0 ,width ,height,1);
+   if(lpage)
+    invertArea(0 ,0 ,width ,height,2);
+  }
+  
   if( find_ptr ){
    invert_search_region();
   }

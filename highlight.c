@@ -27,7 +27,7 @@
 #include "highlight.h"
 
 void
-highlight_Region (cairo_region_t* region, int status){
+highlight_Region (cairo_region_t* region, int option){
 
  int count;
 
@@ -53,13 +53,13 @@ highlight_Region (cairo_region_t* region, int status){
   hr[count].width = rec.width;
   hr[count].height = rec.height;
 
-  text_highlight(rec.x, rec.y, rec.x + rec.width, rec.y + rec.height);
+  text_highlight(rec.x, rec.y, rec.x + rec.width, rec.y + rec.height, option);
  }
  
 }
 
-void text_highlight_release(gint x1, gint y1, gint x2, gint y2, gchar *color_name){
-
+void text_highlight_release(gint x1, gint y1, gint x2, gint y2, gchar *color_name, gint option){
+ 
  guchar *h_r, *h_g, *h_b;
 
  h_r = (guchar *)malloc(3);
@@ -76,13 +76,24 @@ void text_highlight_release(gint x1, gint y1, gint x2, gint y2, gchar *color_nam
  *h_b = color_name[4];
  *(h_b+1) = color_name[5];
  *(h_b+2) = '\0';
-
- guint n_channels = gdk_pixbuf_get_n_channels (pixbuf);
-
- guchar *data = gdk_pixbuf_get_pixels (pixbuf);
  
- guint rowstride = gdk_pixbuf_get_rowstride (pixbuf);
-
+ guint n_channels;
+ guchar *data;
+ guint rowstride;
+ 
+ if( option == 1 ){
+  n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+  data = gdk_pixbuf_get_pixels (pixbuf);
+  rowstride = gdk_pixbuf_get_rowstride (pixbuf);
+ }
+ else if( option == 2 ){
+  n_channels = gdk_pixbuf_get_n_channels (lpixbuf);
+  data = gdk_pixbuf_get_pixels (lpixbuf);
+  rowstride = gdk_pixbuf_get_rowstride (lpixbuf);
+ }
+ else
+  return;
+ 
  gint x, y;
 
  guchar *p;
@@ -107,18 +118,32 @@ void text_highlight_release(gint x1, gint y1, gint x2, gint y2, gchar *color_nam
   }
  }
  
- gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
-
+ if( option == 1 )
+  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+ else if( option == 2)
+  gtk_image_set_from_pixbuf(GTK_IMAGE (lm_PageImage), lpixbuf);
+  
 }
 
-void text_highlight(gint x1, gint y1, gint x2, gint y2){
-
- guint n_channels = gdk_pixbuf_get_n_channels (pixbuf);
-
- guchar *data = gdk_pixbuf_get_pixels (pixbuf);
-
- guint rowstride = gdk_pixbuf_get_rowstride (pixbuf);
-
+void text_highlight(gint x1, gint y1, gint x2, gint y2, gint option){
+ 
+ guint n_channels;
+ guchar *data;
+ guint rowstride;
+ 
+ if( option == 1 ){
+  n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+  data = gdk_pixbuf_get_pixels (pixbuf);
+  rowstride = gdk_pixbuf_get_rowstride (pixbuf);
+ }
+ else if( option == 2 ){
+  n_channels = gdk_pixbuf_get_n_channels (lpixbuf);
+  data = gdk_pixbuf_get_pixels (lpixbuf);
+  rowstride = gdk_pixbuf_get_rowstride (lpixbuf);
+ }
+ else
+  return;
+ 
  gint x, y;
  
  guchar *p;
@@ -137,19 +162,30 @@ void text_highlight(gint x1, gint y1, gint x2, gint y2){
 
 }
 
-void invertArea (gint x1, gint y1, gint x2, gint y2){
-
+void invertArea (gint x1, gint y1, gint x2, gint y2, int option){
+ 
  if(!inverted)
   inverted = 1;
  else
   inverted = 0;
-
- guint n_channels = gdk_pixbuf_get_n_channels (pixbuf);
-
- guchar *data = gdk_pixbuf_get_pixels (pixbuf);
-
- guint rowstride = gdk_pixbuf_get_rowstride (pixbuf);
-
+ 
+ guint n_channels;
+ guchar *data;
+ guint rowstride;
+ 
+ if( option == 1 ){
+  n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+  data = gdk_pixbuf_get_pixels (pixbuf);
+  rowstride = gdk_pixbuf_get_rowstride (pixbuf);
+ }
+ else if( option == 2 ){
+  n_channels = gdk_pixbuf_get_n_channels (lpixbuf);
+  data = gdk_pixbuf_get_pixels (lpixbuf);
+  rowstride = gdk_pixbuf_get_rowstride (lpixbuf);
+ }
+ else
+  return;
+ 
  gint x, y;
  
  guchar *p;
@@ -167,36 +203,52 @@ void invertArea (gint x1, gint y1, gint x2, gint y2){
   }
  }
  
- gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
- 
+ if( !lpage ){
+  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+ }
+ else{
+  if(option == 2)
+   gtk_image_set_from_pixbuf(GTK_IMAGE (lm_PageImage), lpixbuf);
+  else if( option == 1)
+   gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+ }
 }
 
 void
-invertRegion (cairo_region_t* region){
- 
- int count;
-    
- count = cairo_region_num_rectangles(region);
+invertRegion (cairo_region_t* region, int option){
+
+ int count = cairo_region_num_rectangles(region);
     
  while(count--){
     
   cairo_rectangle_int_t rec;
   cairo_region_get_rectangle(region, count, &rec);
   
-  invertArea(rec.x, rec.y, rec.x + rec.width, rec.y + rec.height);
+  invertArea(rec.x, rec.y, rec.x + rec.width, rec.y + rec.height, option);
         
  }
    
 }
 
-void invert_text_highlight(gint x1, gint y1, gint x2, gint y2){
+void invert_text_highlight(gint x1, gint y1, gint x2, gint y2, gint option){
 
- guint n_channels = gdk_pixbuf_get_n_channels (pixbuf);
-
- guchar *data = gdk_pixbuf_get_pixels (pixbuf);
-
- guint rowstride = gdk_pixbuf_get_rowstride (pixbuf);
-
+ guint n_channels;
+ guchar *data;
+ guint rowstride;
+ 
+ if( option == 1 ){
+  n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+  data = gdk_pixbuf_get_pixels (pixbuf);
+  rowstride = gdk_pixbuf_get_rowstride (pixbuf);
+ }
+ else if( option == 2 ){
+  n_channels = gdk_pixbuf_get_n_channels (lpixbuf);
+  data = gdk_pixbuf_get_pixels (lpixbuf);
+  rowstride = gdk_pixbuf_get_rowstride (lpixbuf);
+ }
+ else
+  return;
+ 
  gint x, y;
  
  guchar *p;
@@ -212,11 +264,16 @@ void invert_text_highlight(gint x1, gint y1, gint x2, gint y2){
  
   }
  }
-
+ 
+ if( option == 1 ){
+  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+ }
+ else if( option == 2)
+  gtk_image_set_from_pixbuf(GTK_IMAGE (lm_PageImage), lpixbuf);
 }
 
 void
-invert_highlight_Region (cairo_region_t* region, int status){
+invert_highlight_Region (cairo_region_t* region, gint option){
 
  int count;
  
@@ -242,7 +299,7 @@ invert_highlight_Region (cairo_region_t* region, int status){
   ihr[count].width = rec.width;
   ihr[count].height = rec.height;
 
-  invert_text_highlight(rec.x, rec.y, rec.x + rec.width, rec.y + rec.height);
+  invert_text_highlight(rec.x, rec.y, rec.x + rec.width, rec.y + rec.height, option);
    
  }
 
@@ -252,22 +309,65 @@ void invert_search_region(void){
 
  GtkAdjustment *vadj =
      gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (scrolled_window));	
-	
+ 	
  PopplerRectangle *rect = find_ptr->data;
-
- if( (gint)rect->y2 < (gint)rect->y1 ){
-
-   invertArea(((gint)rect->x1*zoom_factor), ((gint)rect->y2*zoom_factor),((gint)rect->x2*zoom_factor),((gint)rect->y1)*zoom_factor);
+ 
+ if( (gint)rect->y2 > (gint)rect->y1 ) {
    
- }else if( (gint)rect->y2 > (gint)rect->y1 ) {
-   
-   rect->y1 = page_height - rect->y1;
-   rect->y2 = page_height - rect->y2;
-   
-   invertArea( ((gint)rect->x1*zoom_factor), ((gint)rect->y2*zoom_factor),
-               ((gint)rect->x2*zoom_factor),((gint)rect->y1)*zoom_factor);
+  rect->y1 = page_height - rect->y1;
+  rect->y2 = page_height - rect->y2;
  }
-
+ 
+ if(!lpage){
+ 
+  invertArea( (gint)(rect->x1*zoom_factor), 
+              (gint)(rect->y2*zoom_factor),
+              (gint)(rect->x2*zoom_factor), 
+              (gint)(rect->y1*zoom_factor), 
+              1);
+ 
+ }
+ else{ // dual-page mode
+   gint pos = g_list_position(find_ptr_head, find_ptr);
+   
+   if( mode == TEXT_SEARCH_NEXT){
+    if( pos < g_list_position(find_ptr_head, rmatches) || rmatches == NULL){ // left page 
+    
+     invertArea( (gint)(rect->x1*zoom_factor), 
+                (gint)(rect->y2*zoom_factor),
+                (gint)(rect->x2*zoom_factor), 
+                (gint)(rect->y1*zoom_factor), 
+                2);
+   
+    }
+    else{ // right page
+     invertArea( (gint)(rect->x1*zoom_factor), 
+                (gint)(rect->y2*zoom_factor),
+                (gint)(rect->x2*zoom_factor), 
+                (gint)(rect->y1*zoom_factor), 
+                1);
+    }
+   }
+   else if(mode == TEXT_SEARCH_PREV){
+    if( pos <= g_list_position(find_ptr_head, rmatches) ){ // right page 
+    
+     invertArea( (gint)(rect->x1*zoom_factor), 
+                (gint)(rect->y2*zoom_factor),
+                (gint)(rect->x2*zoom_factor), 
+                (gint)(rect->y1*zoom_factor), 
+                1);
+   
+    }
+    else{ // left page
+     invertArea( (gint)(rect->x1*zoom_factor), 
+                (gint)(rect->y2*zoom_factor),
+                (gint)(rect->x2*zoom_factor), 
+                (gint)(rect->y1*zoom_factor), 
+                2);
+    }
+   }
+ }
+  
  int i;
  double region_y1 = (rect->y1)*zoom_factor;
  double range = gtk_adjustment_get_upper(vadj)/(zoom_factor+1);

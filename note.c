@@ -29,7 +29,7 @@
 #include "note.h"
 
 void init_note(void){
-
+ 
  gchar *full_path = (gchar *)malloc(strlen(file_path)+strlen(file_name)+5+2);
 
  strcpy(full_path, file_path);
@@ -86,7 +86,13 @@ void init_note(void){
       pch_tmp = strchr(pch_tmp+1, new_line);
     }
     
-    const char* format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+    const char* format;
+    
+    if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ) 
+     format = "<span foreground=\"yellow\" font=\"%d\">%s</span>";
+    else
+     format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+    
     char *markup = g_markup_printf_escaped(format, (gint)(FONT_SIZE*zoom_factor), pch2+1);
     
     gtk_label_set_markup(GTK_LABEL(label), markup);
@@ -122,7 +128,7 @@ void init_note(void){
     char *pch2 = strchr(pch1+1, ':');
     char *pch3 = strchr(pch2+1, ':');
     char *pch4 = strchr(pch3+1, ':');
-
+    
     *pch = *pch1 = *pch2  = *pch3 = *pch4 = '\0';
 
     struct highlight_region *hg = (struct highlight_region *)malloc(sizeof(struct highlight_region));
@@ -140,11 +146,25 @@ void init_note(void){
     list_add(&(hg->list), &HR_HEAD);
 
     if( hg->page_num ==  current_page_num + 1 ){
-     text_highlight_release(atoi(pch1+1), 
+     
+     if( zoom_factor == 1.0 ){
+     
+      text_highlight_release(atoi(pch1+1), 
                             atoi(pch2+1), 
                             atoi(pch3+1), 
                             atoi(pch4+1), 
-                            hg->color_name); 
+                            hg->color_name, 1); 
+                            
+     }
+     else{
+     
+      text_highlight_release((gint)(atoi(pch1+1)*zoom_factor), 
+                             (gint)(atoi(pch2+1)*zoom_factor), 
+                             (gint)(atoi(pch3+1)*zoom_factor), 
+                             (gint)(atoi(pch4+1)*zoom_factor), 
+                             hg->color_name, 1);
+     
+     }
     }
    
    } //end of if(*line == '1')
@@ -348,14 +368,22 @@ void
 add_comment (void) {
 
  if( mode == TEXT_SELECTION && selection_region && last_region != NULL){
+  
   cairo_region_t *invert_region;
   invert_region = cairo_region_copy(selection_region);
-  invertRegion(selection_region);
+  invertRegion(selection_region,1);
+  
   cairo_region_destroy(selection_region);
   selection_region = NULL;
  }
-
- const char* format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+ 
+ const char* format;
+ 
+ if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ) 
+  format = "<span foreground=\"yellow\" font=\"%d\">%s</span>";
+ else
+  format = "<span foreground=\"black\" font=\"%d\">%s</span>";
+ 
 
  char *markup = g_markup_printf_escaped(format, (gint)(FONT_SIZE*zoom_factor), "New Comment");
 
@@ -364,14 +392,16 @@ add_comment (void) {
  
  GtkWidget *new_label = gtk_label_new("");
  gtk_label_set_markup(GTK_LABEL(new_label), markup);
- gtk_layout_put (GTK_LAYOUT (layout), new_label, 100, (int)(gtk_adjustment_get_value (vadj)+100));
+ 
+ gtk_layout_put (GTK_LAYOUT (layout), new_label, (int)(100*zoom_factor), (int)(100*zoom_factor)+gtk_adjustment_get_value(vadj));
+ 
  gtk_widget_show(new_label);
 
  struct note *note = (struct note*)malloc(sizeof(struct note));
  INIT_LIST_HEAD(&note->list);
  note->comment = new_label;
- note->x = 100;
- note->y = 100;
+ note->x = (int)(100*zoom_factor);
+ note->y = (int)(100*zoom_factor)+gtk_adjustment_get_value(vadj);
  note->page_num = current_page_num + 1;
  
  list_add_tail(&(note->list), &NOTE_HEAD);

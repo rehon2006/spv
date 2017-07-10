@@ -33,4 +33,6 @@ void prev_page_cb(GtkWidget* widget, gpointer data);
 void next_page(void);
 void next_page_cb(GtkWidget* widget, gpointer data);
 
+void dual_page_cb(void);
+
 #endif /* PAGE_H */

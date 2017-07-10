@@ -22,6 +22,7 @@
 #include "page.h"
 
 GList *find_ptr, *find_ptr_head;
+GList *lmatches, *rmatches;
 
 void find_prev( GtkWidget *findbar );
 

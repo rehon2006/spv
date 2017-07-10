@@ -21,7 +21,7 @@
 #include "gui.h"
 
 PopplerDocument* doc;
-PopplerPage* page;
+PopplerPage* page, *lpage;
 
 guint n_areas;
 
@@ -31,7 +31,7 @@ gchar *file_name;
 PopplerRectangle * areas;
 PopplerRectangle * areas_ptr;
 
-gboolean word_not_found;
+int word_not_found;
 GList *find_ptr, *find_ptr_head;
 
 int FONT_SIZE;
@@ -44,12 +44,16 @@ double zoom_factor;
 cairo_region_t *last_region;
 cairo_region_t *selection_region;
 
+cairo_region_t *llast_region;
+cairo_region_t *lselection_region;
+
 cairo_t* cr;
 
 double page_width;
 double page_height;
 
 GdkPixbuf *pixbuf;
+GdkPixbuf *lpixbuf;
 
 gint current_page_num;
 gint find_current_page_num;

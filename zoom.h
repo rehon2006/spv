@@ -33,4 +33,6 @@ void zoom_width_cb(GtkWidget* widget, gpointer data);
 void zoom_height(void);
 void zoom_height_cb(GtkWidget* widget, gpointer data);
 
+void zoom_dual_page(void);
+
 #endif /* ZOOM_H */

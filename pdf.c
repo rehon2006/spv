@@ -39,8 +39,6 @@ void init_pdf( char *path ){
  
  page_changed = FALSE;
  
- zoom_factor = 1.0;
- 
  PDF_BACKGROUND_COLOR_CHANGED = FALSE;
  
  background_color[0] = 199/255.0;
@@ -102,13 +100,19 @@ void init_pdf( char *path ){
  
  poppler_page_get_size(page, &page_width, &page_height); 
  
+ GdkScreen *screen = gdk_screen_get_default ();
+ 
+ if(page_height >= gdk_screen_get_height(screen))
+  zoom_factor = 0.5;
+ else
+  zoom_factor = 1.0;
+ 
  gint width, height;
  
  width = (gint)((page_width*zoom_factor)+0.5);
  height = (gint)((page_height*zoom_factor)+0.5);
 
  cairo_surface_t *surface;
- 
  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
  
  cr = cairo_create(surface);

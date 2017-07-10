@@ -1,9 +1,9 @@
 Simple PDF Viewer
 =================
 
-It's a simple PDF viewer based on GTK3 and Poppler, and is available for Linux, Mac and Windows. Users can highlight text, remove text highlights and add comments on PDF files. These functionalities do not modify PDF files, and related information is saved in a note file.
+SPV is a simple PDF viewer based on GTK3 and Poppler, and is available for Linux, Mac and Windows. Users can highlight text, remove text highlights and add comments on PDF files. These functionalities do not modify PDF files, and related information is saved in a note file.
 
-這是一個使用GTK3以及Poppler編寫的簡單PDF閱讀器並且可以在Linux, Mac以及Windows下執行. 使用者可以在PDF檔案上標記文字, 移除文字標記以及新增註解. 上述功能並不會修改PDF檔案, 相關資訊會儲存在一個note檔案中.
+SPV是一個使用GTK3以及Poppler編寫的簡單PDF閱讀器並且可以在Linux, Mac以及Windows下執行. 使用者可以在PDF檔案上標記文字, 移除文字標記以及新增註解. 上述功能並不會修改PDF檔案, 相關資訊會儲存在一個note檔案中.
 
 Requirements 所需函式庫
 -----
@@ -56,19 +56,19 @@ Copy and paste text 文字複製以及貼上
 
 ### Ubuntu
 
-After selecting text, users can paste with mouse middle button or use Ctrl+c to copy selected text and paste with Ctrl+v.  
+After selecting text, users can paste with middle mouse button or use Ctrl+c to copy selected text and paste with Ctrl+v.  
 
 在文字選取完後,利用滑鼠中鍵貼上文字, 或是利用Ctrl+c複製文字並以Ctrl+v貼上文字.
 
 ### Windows
 
-Use mouse right button or Ctrl+v to paste after selecting text.  
+Use right mouse button or Ctrl+v to paste after selecting text.  
 
 在文字選取完後,使用滑鼠右鍵或是Ctrl+v貼上文字.
 
 ### Mac  
 
-Use mouse right button or Command+v to paste after selecting text.  
+Use right mouse button or Command+v to paste after selecting text.  
 
 在文字選取完後,使用滑鼠右鍵或是Command+v貼上文字.
 
@@ -80,7 +80,7 @@ Key  |   Action
 Ctrl+q | Quit 結束程式
 Ctrl+s | Save note 儲存筆記
 Ctrl+n | Add a comment 新增註解
-Ctrl+f | Text Search 文字搜尋
+Ctrl+f | Text search 文字搜尋
 / | Search forward 向下搜尋
 ? | Search backword 向上搜尋
 n | Repeat last search 重複上次搜尋
@@ -90,16 +90,19 @@ Ctrl- | Zoom out 1x 縮小一倍
 Ctrl+w | Zoom to width 依視窗寬度縮放
 Ctrl+h | Zoom to height 依視窗高度縮放
 Ctrl+z | Switch mode (text selection mode [S], text highlight mode [H] and erase text highlight mode [E]) 模式切換(文字選取模式[S], 文字標記模式[H]以及移除文字標記模式[E] )
+Ctrl+d | Enter/Leave dual-page mode 進入或離開雙頁模式
+F11 | Enter/Leave full-screen mode 進入或離開全螢幕模式
 Shift+c | Change highlight color 改變文字標記顏色
 Shift+b | Change background color 改變背景顏色
 Ctrl+c | Copy selected text 複製選取文字
 Ctrl+v | Show/Hide toolbar 顯示/隱藏工具列
-Ctrl+mouse Scroll up | zoom in 放大一倍
-Ctrl+mouse Scroll down | zoom out 縮小一倍
+Ctrl+x | Invert colors 反相顏色
+Ctrl+mouse Scroll up | Zoom in 1x 放大一倍
+Ctrl+mouse Scroll down | Zoom out 1x 縮小一倍
 number+P | Go to page [number] (e.g. 11P, go to page 11) 前往指定頁數的頁面(如11P就是前往第11頁)
 Right-arrow key | Go to next page 前往下一頁
 Left-arrow key | Go to previous page 前往上一頁
-ESC | Terminate text search or go to text selection mode 結束文字搜尋或是切換至文字選取模式
+ESC | Terminate text search, go to text selection mode or leave full-screen mode 結束文字搜尋或是切換至文字選取模式或是離開全螢幕模式
 
 
 Touchpad Gesture 觸控板手勢

@@ -22,6 +22,13 @@
 
 #include "page.h"
 
+struct note{
+ GtkWidget *comment;
+ gint x,y;
+ gint page_num;
+ struct list_head list;
+};
+
 void save_note (void);
 
 void add_comment (void);

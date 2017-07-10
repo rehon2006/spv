@@ -42,9 +42,11 @@ GtkTextBuffer *buffer;
 GtkWidget *layout;
 
 GtkWidget *m_PageImage;
+GtkWidget *lm_PageImage;
 
 GtkWidget *comment;
 
+GtkWidget *levent_box;
 GtkWidget *event_box;
 
 GtkWidget *selection_widget;
@@ -65,6 +67,8 @@ gboolean cursor_enable;
 
 int newline_y;
 
+double pre_motion_x;
+
 int inverted;
 
 GtkAllocation child_alloc;
@@ -82,10 +86,16 @@ gint have_selection;
 
 double lstart_x, lstart_y;
 
+int left_right;// 0 for left page, 1 for right page
+
 gint layout_motion_handler_id;
 gint layout_release_handler_id;
 
 gint event_box_motion_handler_id;
+gint event_box_release_handler_id;
+
+gint levent_box_motion_handler_id;
+gint levent_box_release_handler_id;
 
 gint sw_motion_handler_id;
 
@@ -93,25 +103,7 @@ int scroll_count;
 guint scroll_time;
 int scroll_zoom;
 
-gint event_box_button_press_handler_id;
-gint event_box_button_release_handler_id;
-
-struct note{
- GtkWidget *comment;
- gint x,y;
- gint page_num;
- struct list_head list;
-};
-
-struct highlight_region{
- gint x,y;
- gint width, height;
- char *color_name; // format #rrggbb
- gint page_num;
- struct list_head list;
-};
-
-GtkWidget* vbox;
+GtkWidget *vbox;
 
 GtkWidget *findbar;
 GtkWidget *findtext;
@@ -141,8 +133,10 @@ GtkWidget *zoomwidthMi;
 GtkWidget *zoomheightMi;
 
 GtkWidget *hide_toolbarMi;
-
 GtkWidget *change_background_colorMi;
+GtkWidget *dual_pageMi;
+GtkWidget *full_screenMi;
+GtkWidget *inverted_colorMi;
 
 GtkWidget *goMi;
 GtkWidget *nextpageMi;
@@ -196,9 +190,6 @@ event_box_press( GdkEventButton *event );
 void
 layout_press( GdkEventButton *event );
 
-void
-event_box_motion_event_cb( GtkWidget* widget, GdkEvent *event, gpointer data );
-
 gboolean
 layout_button_release_event (GtkWidget      *widget,
                              GdkEventButton *event,
@@ -223,7 +214,7 @@ void
 sw_button_motion_cb( GtkWidget* widget, GdkEventMotion *event, gpointer data );
 
 void
-event_box_button_release_event_cb( GtkWidget* widget, GdkEvent *event, gpointer data );
+event_box_release_event_cb( GtkWidget* widget, GdkEvent *event, gpointer data );
 
 void
 toggle_hide_toolbar(void);
@@ -249,11 +240,11 @@ text_selection_mode_cb(GtkWidget* widget, gpointer data);
 static void
 erase_text_highlight_mode_cb(GtkWidget* widget, gpointer data);
 
-void
-on_win_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
+static void
+levent_box_motion_event_cb( GtkWidget* widget, GdkEvent *event, gpointer data );
 
-void
-on_findbar_key_press(GtkWidget *findbar, GdkEventKey *event, gpointer user_data);
+static void
+event_box_motion_event_cb( GtkWidget* widget, GdkEvent *event, gpointer data );
 
 void
 on_findtext_key_release(GtkWidget *findtext, GdkEventKey *event, gpointer user_data);
@@ -279,5 +270,7 @@ void
 copy_text(void);
 
 void init_gui(void);
+
+void full_screen_cb(void);
 
 #endif /* GUI_H */
