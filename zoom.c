@@ -76,6 +76,9 @@ zoom_dual_page(void) {
   page = poppler_document_get_page(doc, current_page_num+1);
   
  }
+ else if( current_page_num == page_num-1 ){
+  page = poppler_document_get_page(doc, current_page_num);
+ }
  
  poppler_page_render(page, cr);
 
@@ -334,7 +337,7 @@ void
 zoom_in_cb(GtkWidget* widget, gpointer data) {
  
  zoom_in();
-
+ 
 }
 
 void
@@ -416,7 +419,7 @@ zoom_width(void) {
    cairo_region_destroy(selection_region);
    selection_region = NULL;
  }
-
+ 
  if(last_region || selection_region ){
    
   cairo_region_t *invert_region;
@@ -499,18 +502,28 @@ zoom_width(void) {
  
  cairo_paint (cr);
 
+ //20170801
  cairo_destroy (cr);
-
+ 
  pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
+ //20170801
  
  if(temp_pixbuf != NULL){
   g_object_unref(temp_pixbuf);
  }
-
+ 
+ //20170801
  cairo_surface_destroy (surface);
 
  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
-
+ //20170801
+ 
+ //gtk_image_set_from_surface(GTK_IMAGE (m_PageImage), surface);
+ 
+ //20170801
+ //cairo_surface_destroy (surface);
+ //20170801
+ 
  g_object_unref (G_OBJECT (page));
  page = NULL;
  
@@ -518,7 +531,7 @@ zoom_width(void) {
 
  GList *list, *iter;
  list = gtk_container_get_children (GTK_CONTAINER (layout));
-
+ 
  for (iter = list; iter; iter = iter->next){
 
   GtkWidget *child = GTK_WIDGET (iter->data);
@@ -549,7 +562,37 @@ zoom_width(void) {
   }
  }
  g_list_free (list);
+ 
+ //text hightlight
+ 
+ //GdkPixbuf *temp_pixbuf;
+ //temp_pixbuf = pixbuf;
+ 
+ //20170801
+ //surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
 
+ //cr = cairo_create (surface);
+ 
+ //pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
+ 
+ //g_message("debug 593");
+ 
+ //gdk_cairo_set_source_pixbuf (cr, pixbuf, 0, 0);
+ 
+ //cairo_paint (cr);
+ 
+
+ //cairo_set_source_rgb (cr, color.red, color.green, color.blue);
+
+ //cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+ //20170801
+ 
+ //20170801
+ //cairo_set_source_rgb (cr, color.red, color.green, color.blue);
+
+ //cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+ //20170801
+ 
  struct list_head *tmp;
   
  list_for_each(tmp, &HR_HEAD){
@@ -558,18 +601,48 @@ zoom_width(void) {
   tmp1= list_entry(tmp, struct highlight_region, list);
 
   if( tmp1->page_num == current_page_num + 1 ){
-    
+   
+   //20170801 
    text_highlight_release((int)(tmp1->x*zoom_factor), 
                           (int)(tmp1->y*zoom_factor), 
                           (int)((tmp1->x+tmp1->width)*zoom_factor), 
                           (int)((tmp1->y+tmp1->height)*zoom_factor), 
                           tmp1->color_name,
                           1);
+   //20170801
+   
+   //20170801
+   //cairo_rectangle (cr, (int)(tmp1->x*zoom_factor),
+   //                     (int)(tmp1->y*zoom_factor), 
+   //                     (int)(tmp1->width*zoom_factor),
+   //                     (int)(tmp1->height*zoom_factor));
+   // 
+   //cairo_fill (cr);
+   //20170801 
     
   }
 
  }
  
+ //20170801
+ //cairo_destroy (cr);
+ 
+ //pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
+ 
+ //cairo_surface_destroy (surface);
+ 
+ //gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+ //20170801
+ 
+ //20170801
+ //gtk_image_set_from_surface(GTK_IMAGE (m_PageImage), surface);
+ 
+ //cairo_surface_destroy (surface);
+ //cairo_destroy (cr);
+ //20170801
+ 
+ //text highlight
+
  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
   invertArea(0 ,0 ,width ,height,1);
   if(lpage)
@@ -579,7 +652,7 @@ zoom_width(void) {
  if( find_ptr ){
   invert_search_region();
  }
-
+ 
 }
 
 void

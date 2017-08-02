@@ -113,6 +113,7 @@ void text_highlight_release(gint x1, gint y1, gint x2, gint y2, gchar *color_nam
     
     p[2] = ( 255 - ( p[2] ^ 0xff ) ) & strtol(h_b, NULL, 16);
     p[2] = ( 255 - ( p[2] ^ 0xff ) ) & strtol(h_b, NULL, 16);
+    
    }
 
   }
@@ -212,6 +213,7 @@ void invertArea (gint x1, gint y1, gint x2, gint y2, int option){
   else if( option == 1)
    gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
  }
+ 
 }
 
 void
@@ -220,7 +222,7 @@ invertRegion (cairo_region_t* region, int option){
  int count = cairo_region_num_rectangles(region);
     
  while(count--){
-    
+  
   cairo_rectangle_int_t rec;
   cairo_region_get_rectangle(region, count, &rec);
   

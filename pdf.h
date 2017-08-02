@@ -24,12 +24,15 @@ PopplerDocument* doc;
 PopplerPage* page, *lpage;
 
 guint n_areas;
+guint line_offset;
 
 gchar *file_path;
 gchar *file_name;
 
 PopplerRectangle * areas;
 PopplerRectangle * areas_ptr;
+PopplerRectangle *areas_line[50];
+int line_count;
 
 int word_not_found;
 GList *find_ptr, *find_ptr_head;
@@ -66,5 +69,7 @@ cairo_region_t *
 create_region_from_poppler_region (GList *region, gdouble scale);
 
 void init_pdf(char *path);
+
+void get_newline( PopplerPage* page );
 
 #endif /* PDF_H */

@@ -33,6 +33,42 @@
 #include "list.h"
 #include "pdf.h"
 
+void get_newline( PopplerPage* page ){
+
+ PopplerRectangle * areas_tmp, *nt_ptr;
+ areas_tmp = areas;
+ nt_ptr = areas_tmp++;
+ 
+ int count = 0;
+ 
+ while( areas_tmp <= areas+n_areas-1 ){
+  
+  if( (*areas_tmp).y2 == (*areas_tmp).y1 ){
+  
+   PopplerRectangle tmp_rect;
+   tmp_rect.x1 = (*(areas_tmp-1)).x1;
+   tmp_rect.y1 = (*(areas_tmp-1)).y1;
+   tmp_rect.x2 = (*(areas_tmp-1)).x2;
+   tmp_rect.y2 = (*(areas_tmp-1)).y2;
+   
+   if( (*(areas_tmp+1)).y1 != (*(areas_tmp-1)).y1 && (*(areas_tmp+1)).y2 != (*(areas_tmp-1)).y2 ){
+    areas_line[count] = areas_tmp;
+    count++;
+   }
+   
+  }
+  areas_tmp++;
+  nt_ptr++;
+ 
+ }
+ 
+ int i;
+ for( i = count; i < 50; i++ ){
+  areas_line[i] = NULL;
+ }
+ 
+}
+
 void init_pdf( char *path ){
  
  GError* err = NULL;
@@ -98,6 +134,10 @@ void init_pdf( char *path ){
  
  if(success) areas_ptr = areas;
  
+ //get_newline(page);
+ line_count = 0;
+ line_offset = 0;
+ 
  poppler_page_get_size(page, &page_width, &page_height); 
  
  GdkScreen *screen = gdk_screen_get_default ();
@@ -138,7 +178,18 @@ void init_pdf( char *path ){
  cairo_surface_destroy (surface);  
  
  m_PageImage = gtk_image_new ();
+ 
+ //20170801
  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+ //20170801
+ 
+ //20170801
+ //m_PageImage = gtk_image_new ();
+ //
+ //gtk_image_set_from_surface(GTK_IMAGE (m_PageImage), surface);
+ 
+ //cairo_surface_destroy (surface);  
+ //20170801
  
 }
 

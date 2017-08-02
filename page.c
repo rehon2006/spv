@@ -34,9 +34,13 @@ static void dual_page(void){
  
  GdkPixbuf *temp_pixbuf;
  temp_pixbuf = lpixbuf;
+  
+ if( current_page_num == poppler_document_get_n_pages(doc)-1 ){
+  current_page_num--;
+  lpage = poppler_document_get_page(doc, current_page_num);
+ }else
+  lpage = poppler_document_get_page(doc, current_page_num);
  
- lpage = poppler_document_get_page(doc, current_page_num);
-
  poppler_page_get_size(lpage, &page_width, &page_height); 
  
  gint width, height;
@@ -325,7 +329,8 @@ void page_change(void){
  
  gint page_num = poppler_document_get_n_pages(doc);
  
- if(lpage){
+ 
+ if(lm_PageImage){
  
   GdkPixbuf *temp_pixbuf;
   temp_pixbuf = lpixbuf;
@@ -381,6 +386,19 @@ void page_change(void){
   gtk_widget_show(lm_PageImage);
 
   //highlight region
+  
+  /* 20170801
+  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+
+  cr = cairo_create (surface);
+  gdk_cairo_set_source_pixbuf (cr, pixbuf, 0, 0);
+  cairo_paint (cr);
+  
+  cairo_set_source_rgb (cr, 1., 1., 0.0);
+
+  cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+  20170801 */
+  
   struct list_head *tmp;
   
   list_for_each(tmp, &HR_HEAD){
@@ -391,10 +409,30 @@ void page_change(void){
    if(tmp1->page_num ==  current_page_num +1 ){
     
     text_highlight_release((int)(tmp1->x*zoom_factor), (int)(tmp1->y*zoom_factor), (int)((tmp1->x+tmp1->width)*zoom_factor), (int)((tmp1->y+tmp1->height)*zoom_factor), tmp1->color_name,2); 
-   
+    
+    /* 20170801
+    cairo_rectangle (cr, (int)(tmp1->x*zoom_factor),
+                         (int)(tmp1->y*zoom_factor), 
+                         (int)(tmp1->width*zoom_factor),
+                         (int)(tmp1->height*zoom_factor));
+    
+    cairo_fill (cr);
+    20170801 */
+    
    }
 
   }
+  
+  /* 20170801
+  cairo_destroy (cr);
+ 
+  pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
+ 
+  cairo_surface_destroy (surface);
+ 
+  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+  20170801 */
+  
   //highlight region
 
   //comments
@@ -428,13 +466,14 @@ void page_change(void){
  
  }
 
- if( !lpage )
+ if( !lm_PageImage )
   page = poppler_document_get_page(doc, current_page_num);
  else{
-  if(current_page_num == page_num-1)
+  if(current_page_num == page_num-1){
    page = poppler_document_get_page(doc, current_page_num);
-  else
+  }else{
    page = poppler_document_get_page(doc, current_page_num+1);
+  }
  }
  
  poppler_page_get_size(page, &page_width, &page_height); 
@@ -462,15 +501,25 @@ void page_change(void){
  cairo_paint (cr);
  cairo_destroy (cr);
  
+ //20170801
  pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
-
+ //20170801
+ 
  if(temp_pixbuf != NULL){
   g_object_unref(temp_pixbuf);
  }
 
+ //20170801
  cairo_surface_destroy (surface); 
  
  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+ //20170801
+ 
+ //20170801
+ //gtk_image_set_from_surface(GTK_IMAGE (m_PageImage), surface);
+ 
+ //cairo_surface_destroy (surface);
+ //20170801
  
  gtk_layout_set_size (GTK_LAYOUT(layout), width, height);
  
@@ -553,6 +602,22 @@ void page_change(void){
 
  } 
  
+ /* 20170801
+ //GdkPixbuf *temp_pixbuf;
+ temp_pixbuf = pixbuf;
+ 
+ surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+
+  cr = cairo_create (surface);
+  gdk_cairo_set_source_pixbuf (cr, pixbuf, 0, 0);
+  cairo_paint (cr);
+  
+  //cairo_set_source_rgb (cr, 1., 1., 0.0);
+  cairo_set_source_rgb (cr, color.red, color.green, color.blue);
+
+  cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+  20170801 */
+  
   list_for_each(tmp, &HR_HEAD){
 
    struct highlight_region *tmp1;
@@ -562,6 +627,14 @@ void page_change(void){
     if(tmp1->page_num ==  current_page_num +1 ){
     
      text_highlight_release((int)(tmp1->x*zoom_factor), (int)(tmp1->y*zoom_factor), (int)((tmp1->x+tmp1->width)*zoom_factor), (int)((tmp1->y+tmp1->height)*zoom_factor), tmp1->color_name,1); 
+     /* 20170801
+     cairo_rectangle (cr, (int)(tmp1->x*zoom_factor),
+                          (int)(tmp1->y*zoom_factor), 
+                          (int)(tmp1->width*zoom_factor),
+                          (int)(tmp1->height*zoom_factor));
+    
+     cairo_fill (cr);
+     20170801 */
    
     }
    }
@@ -576,6 +649,20 @@ void page_change(void){
    }
 
   }
+  
+  /* 20170801
+  cairo_destroy (cr);
+ 
+  pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
+ 
+  cairo_surface_destroy (surface);
+ 
+  gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
+  
+  if(temp_pixbuf != NULL){
+   g_object_unref(temp_pixbuf);
+  }
+  20170801 */
  
  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
   invertArea(0 ,0 ,width ,height,1);

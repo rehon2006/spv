@@ -29,6 +29,8 @@
 GtkWidget* win;
 GtkWidget *scrolled_window;
 
+GdkRGBA color;
+
 GtkWidget *toolbar;
 GtkWidget *comboBox;
 
@@ -137,6 +139,8 @@ GtkWidget *change_background_colorMi;
 GtkWidget *dual_pageMi;
 GtkWidget *full_screenMi;
 GtkWidget *inverted_colorMi;
+GtkWidget *cursor_modeMi;
+GtkWidget *continuous_modeMi;
 
 GtkWidget *goMi;
 GtkWidget *nextpageMi;
