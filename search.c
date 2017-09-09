@@ -41,10 +41,12 @@ void find_exit_cb( GtkWidget *widget, gpointer user_data ){
   find_ptr = NULL;
  }
        
- char page_str[100];
+ char *page_str = (char*)malloc(100);
 
  sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[S]");
  gtk_window_set_title(GTK_WINDOW(win), page_str);
+ 
+ free(page_str);
        
  word_not_found = 1;
 
@@ -68,20 +70,6 @@ void find_text_cb( GtkWidget *widget, gpointer user_data ){
  gtk_widget_show(find_exit_button);
  gtk_widget_grab_focus (findtext);
  
- if( find_ptr ){
-         
-  invert_search_region();
-  g_list_free(find_ptr_head);
-  find_ptr_head = NULL;
-  find_ptr = NULL;
- }
- 
- word_not_found = 1;
- 
-}
-
-void search_slash( void ){
-
  if( find_ptr ){
          
   invert_search_region();
@@ -242,7 +230,8 @@ static int word_found(GList *matches){
  if( mode == TEXT_SEARCH_NEXT ){
   
   if(current_page_num == poppler_document_get_n_pages(doc)){
-   if(!lpage)
+   
+   if( !dual_page_mode )
     current_page_num = -1;
    else
     current_page_num = -2;
@@ -277,8 +266,13 @@ static int word_found(GList *matches){
     
     char *find_text;
     
-    if( !lpage ){ //single page mode 
-     
+    if( !dual_page_mode ){
+      
+      if( page ){
+       g_object_unref (G_OBJECT (page));
+       page = NULL;
+      }
+      
       if( mode == TEXT_SEARCH_NEXT ){
        
        if(current_page_num == -1){
@@ -319,6 +313,11 @@ static int word_found(GList *matches){
     }
     else{ //dual-page mode
      
+     if( page ){
+      g_object_unref (G_OBJECT (page));
+      page = NULL;
+     }
+     
      gint pos = g_list_position(matches, tmp);
      
      gint lr_pos;
@@ -343,7 +342,7 @@ static int word_found(GList *matches){
       
        if(pos != -1){
        
-        if(!page || lm_PageImage ){
+        if(!page || dual_page_mode ){
         
          if( current_page_num == poppler_document_get_n_pages(doc)-1 ){
           page = poppler_document_get_page(doc, current_page_num);
@@ -368,11 +367,10 @@ static int word_found(GList *matches){
       }
       else{ //left page
       
-       //check
        if(lpage){
         g_object_unref (G_OBJECT (lpage));
+        lpage = NULL;
        }
-       //check
        
        if( current_page_num == poppler_document_get_n_pages(doc)-1 ){
         lpage = poppler_document_get_page(doc, current_page_num-1);
@@ -390,6 +388,12 @@ static int word_found(GList *matches){
        } 
       
        find_text = poppler_page_get_selected_text(lpage, POPPLER_SELECTION_GLYPH, &tmp_rect);
+       
+       if(lpage){
+        g_object_unref (G_OBJECT (lpage));
+        lpage = NULL;
+       }  
+       
       }
      }//end of if( mode == TEXT_SEARCH_PREV) 
      else if( mode == TEXT_SEARCH_NEXT){
@@ -428,14 +432,19 @@ static int word_found(GList *matches){
         } 
       
         find_text = poppler_page_get_selected_text(lpage, POPPLER_SELECTION_GLYPH, &tmp_rect);
-       
+        
+        if(lpage){
+         g_object_unref (G_OBJECT (lpage));
+         lpage = NULL;
+        }  
+        
        }
        else{ // right page
        
        
         if(pos != -1){
        
-         if(!page || lm_PageImage ){
+         if(!page || dual_page_mode ){
         
           if( current_page_num == poppler_document_get_n_pages(doc)-1 ){
            page = poppler_document_get_page(doc, current_page_num);
@@ -481,7 +490,12 @@ static int word_found(GList *matches){
        } 
       
        find_text = poppler_page_get_selected_text(lpage, POPPLER_SELECTION_GLYPH, &tmp_rect);
-       
+      
+       if(lpage){
+        g_object_unref (G_OBJECT (lpage));
+        lpage = NULL;
+       }     
+               
       }
      
      }
@@ -500,11 +514,14 @@ static int word_found(GList *matches){
      
      if( ! strcmp( find_text, gtk_entry_get_text(GTK_ENTRY(findtext)) ) || pch){
       
+      free(find_text);
+      
       not_found = 0;
       
       break;
      
      }else{
+      free(find_text);
       tmp = tmp->next;
      }
      
@@ -538,10 +555,13 @@ void find_prev( GtkWidget *findbar ){
   
   GList *matches;
   
-  if(!lpage){ //single-page mode
-   if(page)
+  if( !dual_page_mode ){
+   
+   if(page){
     g_object_unref (G_OBJECT (page));
- 
+    page = NULL;
+   }
+   
    page = poppler_document_get_page(doc, current_page_num);
    
    matches = poppler_page_find_text (page, gtk_entry_get_text(GTK_ENTRY(findtext)));
@@ -582,8 +602,15 @@ void find_prev( GtkWidget *findbar ){
    
    guint t_len = g_list_length(matches);
    
-   g_object_unref (G_OBJECT (page));
-   page = NULL;
+   if(page){
+    g_object_unref (G_OBJECT (page));
+    page = NULL;
+   }
+   
+   if(lpage){
+    g_object_unref (G_OBJECT (lpage));
+    lpage = NULL;
+   }
    
   }
   
@@ -591,7 +618,7 @@ void find_prev( GtkWidget *findbar ){
    word_not_found = 0;
   else
    if(!matches)
-    if(!lpage)
+    if(!dual_page_mode)
      word_not_found++;
     else
      word_not_found = word_not_found + 2;
@@ -625,7 +652,7 @@ void find_prev( GtkWidget *findbar ){
     
     char *find_text= NULL;
     
-    if( !lpage ){ //single page mode 
+    if( !dual_page_mode ){
      
      if(!page)
       page = poppler_document_get_page(doc, current_page_num);
@@ -665,6 +692,12 @@ void find_prev( GtkWidget *findbar ){
        lpage = poppler_document_get_page(doc, current_page_num);
       
       find_text = poppler_page_get_selected_text(lpage, POPPLER_SELECTION_GLYPH, &tmp_rect);
+     
+      if(lpage){
+       g_object_unref (G_OBJECT (lpage));
+       lpage = NULL;
+      }
+     
      } 
 
     }
@@ -681,10 +714,12 @@ void find_prev( GtkWidget *findbar ){
      
      if( ! strcmp( find_text, gtk_entry_get_text(GTK_ENTRY(findtext)) ) || pch){
       
+      free(find_text);
       break;
      
      }else{
       
+      free(find_text);
       find_ptr = find_ptr->next;
      }
      
@@ -726,7 +761,8 @@ void find_prev( GtkWidget *findbar ){
    
    char *find_text;
    
-   if(!lpage){
+   if(!dual_page_mode){
+   
     if(!page)
      page = poppler_document_get_page(doc, current_page_num);
     
@@ -734,7 +770,12 @@ void find_prev( GtkWidget *findbar ){
     
    }
    else{ //dual-page mode
-   
+    
+    if(page){
+     g_object_unref (G_OBJECT (page));
+     page = NULL;
+    }
+    
     gint pos = g_list_position(find_ptr_head, find_ptr);
    
     if( pos <= g_list_position(find_ptr_head, rmatches) ){ // right page 
@@ -756,6 +797,12 @@ void find_prev( GtkWidget *findbar ){
      lpage = poppler_document_get_page(doc, current_page_num);
      
      find_text = poppler_page_get_selected_text(lpage, POPPLER_SELECTION_GLYPH, &tmp_rect);
+    
+     if(lpage){
+      g_object_unref (G_OBJECT (lpage));
+      lpage = NULL;
+     }
+    
     } 
    
    }
@@ -771,10 +818,12 @@ void find_prev( GtkWidget *findbar ){
     pch = strstr(find_text, gtk_entry_get_text(GTK_ENTRY(findtext)));
     
     if( ! strcmp( find_text, gtk_entry_get_text(GTK_ENTRY(findtext)) ) || pch ){
-      
+     
+     free(find_text);
      break;
     }else{
-      
+     
+     free(find_text); 
      find_ptr = find_ptr->next;
     }
      
@@ -799,11 +848,17 @@ void find_prev( GtkWidget *findbar ){
   GList *matches;
   char *find_text;
   
-  if(!lpage){ // single-page mode
+  if( !dual_page_mode ){
+   
+   if(page){
+    g_object_unref (G_OBJECT (page));
+    page = NULL;
+   }
    
    if(current_page_num  == 0){
    
     current_page_num = poppler_document_get_n_pages(doc)-1;
+    
     page = poppler_document_get_page(doc, current_page_num);
     
    }else{
@@ -813,8 +868,12 @@ void find_prev( GtkWidget *findbar ){
   
   }
   else{ // dual-page mode
+   
    if(current_page_num  == 0)
     current_page_num = poppler_document_get_n_pages(doc);
+   else if( current_page_num == 1 ){
+    current_page_num = 0;
+   }
    
    if(page)
     g_object_unref (G_OBJECT (page));
@@ -827,6 +886,12 @@ void find_prev( GtkWidget *findbar ){
     lpage = poppler_document_get_page(doc, current_page_num-2);
      page = poppler_document_get_page(doc, current_page_num-1);
      
+   }
+   else if( current_page_num == 0 ){
+    
+    lpage = poppler_document_get_page(doc, current_page_num);
+     page = poppler_document_get_page(doc, current_page_num+1);
+    
    }
    else{ //current_page_num == -1 or -2
     
@@ -845,17 +910,25 @@ void find_prev( GtkWidget *findbar ){
    //match for previous two pages
    matches = g_list_reverse(matches);
    
-   if(current_page_num >= 2 )
+   if(current_page_num >= 2 ){
      current_page_num = current_page_num -2;
-   else
-    current_page_num = poppler_document_get_n_pages(doc)-2;
-  
+   }
+   else{
+    if( current_page_num != 0 )
+     current_page_num = poppler_document_get_n_pages(doc)-2;
+   }
+   
+   if( lpage ){
+    g_object_unref (G_OBJECT (lpage));
+    lpage = NULL;
+   }
+   
   }
    
    if( !word_found(matches) ){ // check if previous page contains strings that match the searching string
     word_not_found = 0;
    
-    if( !lpage ){
+    if( !dual_page_mode ){
      current_page_num--;
     }
     
@@ -869,7 +942,7 @@ void find_prev( GtkWidget *findbar ){
    while( word_found(matches) ){ // when there is no pattern matched
     //return 0 for pattern matched, else pattern not matched
     
-    if(!lpage){
+    if( !dual_page_mode ){
      if( current_page_num != -1 ){
       current_page_num--;
       
@@ -890,12 +963,12 @@ void find_prev( GtkWidget *findbar ){
     
     }
     
-    if(!lpage)
+    if( !dual_page_mode)
      word_not_found++;
     else
      word_not_found = word_not_found +2;
     
-    if(!lpage){
+    if( !dual_page_mode){
      if(current_page_num == -1) //check
       current_page_num = 0;
     }
@@ -908,7 +981,7 @@ void find_prev( GtkWidget *findbar ){
     if( current_page_num ==  find_current_page_num )
      break;
     
-    if(current_page_num == 0 && lm_PageImage ){
+    if(current_page_num == 0 && dual_page_mode ){
      
      if(page)
       g_object_unref (G_OBJECT (page));
@@ -926,15 +999,33 @@ void find_prev( GtkWidget *findbar ){
 
      matches = g_list_reverse(matches);
      
+     if(lpage){
+      g_object_unref (G_OBJECT (lpage));
+      lpage = NULL;
+     }
+     
+     if(page){
+      g_object_unref (G_OBJECT (page));
+      page = NULL;
+     }
+     
      if( !word_found(matches) )
       break;
      
     }
     
-    if(page)
-      g_object_unref (G_OBJECT (page));
+    if(page){
+     g_object_unref (G_OBJECT (page));
+     page = NULL;
+    }
     
-    if(!lpage){ //single-page mode 
+    if( !dual_page_mode ){
+    
+     if(page){
+      g_object_unref (G_OBJECT (page));
+      page = NULL;
+     }
+     
      page = poppler_document_get_page(doc, current_page_num);
     
      matches = poppler_page_find_text (page, gtk_entry_get_text(GTK_ENTRY(findtext)));
@@ -957,6 +1048,11 @@ void find_prev( GtkWidget *findbar ){
 
      matches = g_list_reverse(matches);
      
+     if(lpage){
+      g_object_unref (G_OBJECT (lpage));
+      lpage = NULL;
+     } 
+     
     }
     
     if(page){
@@ -964,7 +1060,7 @@ void find_prev( GtkWidget *findbar ){
      page = NULL;
     }
     
-    if(!lpage){ // single-page
+    if( !dual_page_mode ){
      if(current_page_num == poppler_document_get_n_pages(doc)-1 && find_current_page_num == 0)
       break;
      else if( current_page_num  == find_current_page_num+1 ){
@@ -984,7 +1080,7 @@ void find_prev( GtkWidget *findbar ){
        word_not_found = 0;
       else{
        
-       if(!lpage)
+       if( !dual_page_mode )
         word_not_found++;
        else
         word_not_found = word_not_found +2;
@@ -1005,7 +1101,6 @@ void find_prev( GtkWidget *findbar ){
     }
     
     if(matches){
-     
      find_ptr_head = matches;
      
      if( !word_found(matches) ){
@@ -1020,14 +1115,14 @@ void find_prev( GtkWidget *findbar ){
    
     if(word_not_found  == poppler_document_get_n_pages(doc)) {
     // there is no pattern matched in this pdf file
-    
+     
      current_page_num = find_current_page_num;
      page_change();
    
     }
     else{
      
-     if(!lpage){
+     if( !dual_page_mode ){
       
       if( current_page_num  == find_current_page_num+1 )
        current_page_num = find_current_page_num;
@@ -1037,7 +1132,8 @@ void find_prev( GtkWidget *findbar ){
       if( word_not_found < poppler_document_get_n_pages(doc) - 1 )
        find_prev(findbar);
      
-     }else{
+     }
+     else{
       
       gint page_num = poppler_document_get_n_pages(doc);
       
@@ -1100,7 +1196,7 @@ void find_next( GtkWidget *findbar ){
   
   GList *matches;
   
-  if(!lpage){
+  if( !dual_page_mode ){
    
    if(page)
     g_object_unref (G_OBJECT (page));
@@ -1108,6 +1204,7 @@ void find_next( GtkWidget *findbar ){
    page = poppler_document_get_page(doc, current_page_num);
 
    matches = poppler_page_find_text (page, gtk_entry_get_text(GTK_ENTRY(findtext)));
+   
   }
   else{ //dula-page mode
   
@@ -1119,11 +1216,11 @@ void find_next( GtkWidget *findbar ){
    
    if( current_page_num != -1 ){
     lpage = poppler_document_get_page(doc, current_page_num);
-    page = poppler_document_get_page(doc, current_page_num+1);
+     page = poppler_document_get_page(doc, current_page_num+1);
    }
    else{
     lpage = poppler_document_get_page(doc, 0);
-    page = poppler_document_get_page(doc, 1);
+     page = poppler_document_get_page(doc, 1);
    }
    
    lmatches = poppler_page_find_text (lpage, gtk_entry_get_text(GTK_ENTRY(findtext)));
@@ -1170,10 +1267,10 @@ void find_next( GtkWidget *findbar ){
     
     char *find_text;
     
-    if( !lpage ){ //single page mode 
+    if( !dual_page_mode){
      
      if(!page)
-      page = poppler_document_get_page(doc, current_page_num);
+       page = poppler_document_get_page(doc, current_page_num);
    
      find_text = poppler_page_get_selected_text(page, POPPLER_SELECTION_GLYPH, &tmp_rect);
     }
@@ -1209,9 +1306,10 @@ void find_next( GtkWidget *findbar ){
      
      if( ! strcmp( find_text, gtk_entry_get_text(GTK_ENTRY(findtext)) ) || pch ){
       //match the pattern and break
+      free(find_text);
       break;
      }else{
-      
+      free(find_text);
       find_ptr = find_ptr->next;
      }
      
@@ -1261,7 +1359,7 @@ void find_next( GtkWidget *findbar ){
     
     char *find_text;
     
-    if(!lpage){
+    if( !dual_page_mode ){
      
      //find_ptr is not null, so you cannot get next page's page
      if(!page)
@@ -1273,8 +1371,10 @@ void find_next( GtkWidget *findbar ){
     else{
      
      if( pos < g_list_position(find_ptr_head, rmatches) || rmatches == NULL ){ // left page 
-     
-      g_object_unref (G_OBJECT (lpage));
+      
+      if(lpage)
+       g_object_unref (G_OBJECT (lpage));
+      
       lpage = poppler_document_get_page(doc, current_page_num);
      
       find_text = poppler_page_get_selected_text(lpage, POPPLER_SELECTION_GLYPH, &tmp_rect);
@@ -1287,6 +1387,12 @@ void find_next( GtkWidget *findbar ){
       find_text = poppler_page_get_selected_text(page, POPPLER_SELECTION_GLYPH, &tmp_rect);
      
      }
+     
+     if(lpage){
+      g_object_unref (G_OBJECT (lpage));
+      lpage = NULL;
+     } 
+     
     }
     
     if( find_text ){ 
@@ -1296,9 +1402,10 @@ void find_next( GtkWidget *findbar ){
      
      if( ! strcmp( find_text, gtk_entry_get_text(GTK_ENTRY(findtext)) )  || pch ){
       //match the pattern
+      free(find_text);
       break;
      }else{
-      
+      free(find_text);
       find_ptr = find_ptr->next;
      }
     } // end of if( find_text )
@@ -1326,7 +1433,7 @@ void find_next( GtkWidget *findbar ){
   }
   
   //if text-search goes to last page, go back to first page 
-  if(!lpage){
+  if( !dual_page_mode ){
    if(current_page_num == poppler_document_get_n_pages(doc)-1)
     current_page_num = -1;
   }
@@ -1341,7 +1448,7 @@ void find_next( GtkWidget *findbar ){
   
   GList *matches;
   
-  if(!lpage){
+  if( !dual_page_mode ){
   
    if(page){
     g_object_unref (G_OBJECT (page));
@@ -1378,14 +1485,19 @@ void find_next( GtkWidget *findbar ){
    rmatches = poppler_page_find_text (page, gtk_entry_get_text(GTK_ENTRY(findtext)));
 
    matches = g_list_concat(lmatches, rmatches);
-
+   
+   if(lpage){
+    g_object_unref (G_OBJECT (lpage));
+    lpage = NULL;
+   }
+   
   }
   
   if( !word_found(matches) )
    word_not_found = 0;
   else
    if(!matches)
-    if(!lpage)
+   if( !dual_page_mode )
      word_not_found++;
     else
      word_not_found = word_not_found + 2;
@@ -1399,7 +1511,7 @@ void find_next( GtkWidget *findbar ){
   //while(!matches ||  matches && word_not_found ){
   while( word_found(matches) ){ // when there is no pattern matched
    
-   if(!lpage)
+   if(!dual_page_mode)
     word_not_found++;
    else
     word_not_found = word_not_found +2;
@@ -1408,12 +1520,15 @@ void find_next( GtkWidget *findbar ){
     break;
    }
    
-   if(!lm_PageImage)
+   if(!dual_page_mode)
     current_page_num++;
    else{
+   
     current_page_num = current_page_num + 2;
+    
     if( current_page_num == poppler_document_get_n_pages(doc) - 1 )
      current_page_num = 0;
+     
    }
    
    //if we go to the last page, got back to page 1
@@ -1436,9 +1551,13 @@ void find_next( GtkWidget *findbar ){
      break;
    }
    
+   if( !dual_page_mode ){
    
+    if(page){
+     g_object_unref (G_OBJECT (page));
+     page = NULL;
+    }
    
-   if(!lpage){
     page = poppler_document_get_page(doc, current_page_num+1);
     matches = poppler_page_find_text (page, gtk_entry_get_text(GTK_ENTRY(findtext)));
    }
@@ -1457,7 +1576,12 @@ void find_next( GtkWidget *findbar ){
     rmatches = poppler_page_find_text (page, gtk_entry_get_text(GTK_ENTRY(findtext)));
 
     matches = g_list_concat(lmatches, rmatches);
-
+    
+    if( lpage ){
+     g_object_unref (G_OBJECT (lpage));
+     lpage = NULL;
+    }
+    
    }
    
    g_object_unref (G_OBJECT (page));
@@ -1466,7 +1590,7 @@ void find_next( GtkWidget *findbar ){
    if(matches){
     find_ptr_head = matches;
     
-    if(lpage){
+    if( dual_page_mode ){
     
      if( !word_found(matches) ){
       word_not_found = 0;
@@ -1504,8 +1628,8 @@ void find_next( GtkWidget *findbar ){
      }
      
     }else{ // word_not_found = 0
-    
-     if(lm_PageImage){
+     
+     if( dual_page_mode ){
       if(current_page_num != poppler_document_get_n_pages(doc)-3)
        current_page_num = current_page_num - 2;
      }
@@ -1522,7 +1646,7 @@ void find_next( GtkWidget *findbar ){
     
     if( !word_not_found ){
      
-     if(!lm_PageImage)
+     if( !dual_page_mode )
       next_page();
      else
       page_change();
@@ -1541,7 +1665,7 @@ void find_next( GtkWidget *findbar ){
      }else{
       
       if( current_page_num != find_current_page_num ){
-      
+       
        next_page();
      
        find_ptr = NULL;
@@ -1555,7 +1679,7 @@ void find_next( GtkWidget *findbar ){
         
         page_change();
        }else{
-       
+        
         next_page();
      
         find_ptr = NULL;
@@ -1577,9 +1701,11 @@ void find_next( GtkWidget *findbar ){
    
    if( current_page_num == find_current_page_num )
     page_change();
-   else
+   else{
+    page_change();
     find_next(findbar);
-   
+   }
+    
   }
   
  } // end of if(find_ptr) else

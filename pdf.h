@@ -44,29 +44,34 @@ double background_color[3];
 
 double zoom_factor;
 
-cairo_region_t *last_region;
-cairo_region_t *selection_region;
+cairo_region_t *da_selection_region;
+cairo_region_t *lda_selection_region;
 
-cairo_region_t *llast_region;
-cairo_region_t *lselection_region;
+PopplerRectangle da_doc_area;
 
 cairo_t* cr;
+cairo_surface_t *surface;
+cairo_surface_t *selection_surface;
+
+cairo_surface_t *lsurface;
+
+int press_rl;
+
+PopplerColor da_glyph_color;
+PopplerColor da_background_color;
 
 double page_width;
 double page_height;
 
-GdkPixbuf *pixbuf;
-GdkPixbuf *lpixbuf;
-
 gint current_page_num;
 gint find_current_page_num;
 
-cairo_rectangle_int_t pre_rec; 
 cairo_rectangle_int_t *hr; 
 cairo_rectangle_int_t *ihr; 
 
-cairo_region_t *
-create_region_from_poppler_region (GList *region, gdouble scale);
+int draw_count;
+
+gboolean dual_page_mode;
 
 void init_pdf(char *path);
 

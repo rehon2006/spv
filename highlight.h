@@ -23,28 +23,19 @@
 struct highlight_region{
  gint x,y;
  gint width, height;
- char *color_name; // format #rrggbb
+ char *color_name; // format #RRGGBB
  gint page_num;
  struct list_head list;
 };
 
 guchar hc[3];     
 
-void text_highlight(gint x1, gint y1, gint x2, gint y2, gint option);
-
-void text_highlight_release(gint x1, gint y1, gint x2, gint y2, gchar* color_name, gint option);
-
 void invertArea (gint x1, gint y1, gint x2, gint y2, int option);
-
-void invertRegion (cairo_region_t* region, int option);
-
-void invert_text_highlight(gint x1, gint y1, gint x2, gint y2, gint option);
-
-void invert_highlight_Region (cairo_region_t* region, gint option);
 
 void invert_search_region(void);
 
-void
-highlight_Region (cairo_region_t* region, int option);
+void save_highlight(GtkWidget *widget);
+
+void erase_highlight(GtkWidget *widget);
 
 #endif /* HIGHLIGHT_H */

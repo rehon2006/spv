@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
  #endif
  
  init_pdf(abs_path);
-
+ 
  }else if (argc != 2) {
   printf("Useage: ./spv [file name] or ./spv\n");
   return 1;

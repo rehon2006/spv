@@ -71,9 +71,11 @@ void get_newline( PopplerPage* page ){
 
 void init_pdf( char *path ){
  
+ draw_count = 0;
+ 
  GError* err = NULL;
  
- page_changed = FALSE;
+ dual_page_mode = FALSE;
  
  PDF_BACKGROUND_COLOR_CHANGED = FALSE;
  
@@ -127,7 +129,9 @@ void init_pdf( char *path ){
  }
  
  areas = areas_ptr = NULL;
-    
+ 
+ selection_surface = NULL;
+ 
  gboolean success;
     
  success = poppler_page_get_text_layout(page, &areas, &n_areas); 
@@ -137,6 +141,8 @@ void init_pdf( char *path ){
  //get_newline(page);
  line_count = 0;
  line_offset = 0;
+ 
+ press_rl = 1;
  
  poppler_page_get_size(page, &page_width, &page_height); 
  
@@ -152,12 +158,14 @@ void init_pdf( char *path ){
  width = (gint)((page_width*zoom_factor)+0.5);
  height = (gint)((page_height*zoom_factor)+0.5);
 
- cairo_surface_t *surface;
  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
  
  cr = cairo_create(surface);
-    
+ 
+ lsurface = NULL;
+ 
  cairo_save(cr);
+ 
  cairo_scale(cr, zoom_factor, zoom_factor);
 
  poppler_page_render(page, cr); 
@@ -170,53 +178,25 @@ void init_pdf( char *path ){
   cairo_set_source_rgb (cr, 1., 1., 1.);
   
  cairo_paint (cr);
-
- cairo_destroy (cr);
-
- pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, width, height);
  
- cairo_surface_destroy (surface);  
+ PopplerRectangle area = { 0, 0, 0, 0 };
  
- m_PageImage = gtk_image_new ();
+ poppler_page_get_size (page, &area.x2, &area.y2);
+ da_selection_region = poppler_page_get_selected_region (page,
+                                                         1.0,
+                                                         POPPLER_SELECTION_GLYPH,
+                                                         &area);
  
- //20170801
- gtk_image_set_from_pixbuf(GTK_IMAGE (m_PageImage), pixbuf);
- //20170801
+ lda_selection_region = NULL;
  
- //20170801
- //m_PageImage = gtk_image_new ();
- //
- //gtk_image_set_from_surface(GTK_IMAGE (m_PageImage), surface);
+ //for text selection
+ da_glyph_color.red = CLAMP ((guint) (1 * 65535), 0, 65535);
+ da_glyph_color.green = CLAMP ((guint) (1* 65535), 0, 65535);
+ da_glyph_color.blue = CLAMP ((guint) (1* 65535), 0, 65535);
  
- //cairo_surface_destroy (surface);  
- //20170801
+ da_background_color.red = CLAMP ((guint) (0* 65535), 0, 65535);
+ da_background_color.green = CLAMP ((guint) (0 * 65535), 0, 65535);
+ da_background_color.blue = CLAMP ((guint) (0 * 65535), 0, 65535);
+ //for text selection
  
-}
-
-cairo_region_t *
-create_region_from_poppler_region (GList *region, gdouble scale){
-
- GList* list;
- cairo_region_t *retval;
- retval = cairo_region_create ();
-
- for (list = region; list; list = g_list_next (list)) {
-
-  PopplerRectangle   *rectangle;
-  cairo_rectangle_int_t rect;
-  
-  rectangle = (PopplerRectangle *)list->data;
-  
-  rect.x = (gint) ((rectangle->x1 * scale) + 0.5);
-  rect.y = (gint) ((rectangle->y1 * scale) + 0.5);
-  rect.width  = (gint) (((rectangle->x2 - rectangle->x1) * scale) + 0.5);
-		rect.height = (gint) (((rectangle->y2 - rectangle->y1) * scale) + 0.5);
-		
-  cairo_region_union_rectangle (retval, &rect);
-  
-  poppler_rectangle_free (rectangle);
- }
-
- return retval;
-
 }

@@ -32,8 +32,6 @@ void search_N( GtkWidget *findbar );
 
 void search_n( GtkWidget *findbar );
 
-void search_slash( void );
-
 void find_text_cb( GtkWidget *widget, gpointer user_data );
 
 void find_exit_cb( GtkWidget *widget, gpointer user_data );

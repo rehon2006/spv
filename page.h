@@ -23,8 +23,6 @@
 
 #include "list.h"
 
-gboolean page_changed;
-
 void page_change(void);
 
 void prev_page(void);

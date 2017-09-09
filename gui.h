@@ -32,7 +32,6 @@ GtkWidget *scrolled_window;
 GdkRGBA color;
 
 GtkWidget *toolbar;
-GtkWidget *comboBox;
 
 GtkToolItem *highlight_color;
 GdkPixbuf *hc_pixbuf;
@@ -43,21 +42,16 @@ GtkTextBuffer *buffer;
 
 GtkWidget *layout;
 
-GtkWidget *m_PageImage;
-GtkWidget *lm_PageImage;
+GtkWidget *draw_area;
+GtkWidget *ldraw_area;
+
+gint da_width, da_height;
 
 GtkWidget *comment;
 
-GtkWidget *levent_box;
-GtkWidget *event_box;
-
-GtkWidget *selection_widget;
-
 GtkClipboard *clipboard;
 
-GdkCursor *sel_cursor;
-
-int pressed; 
+GdkCursorType da_cursor;
 
 int layout_move;
 
@@ -67,39 +61,24 @@ guint pre_keyval;
 
 gboolean cursor_enable;
 
-int newline_y;
-
-double pre_motion_x;
-
 int inverted;
 
 GtkAllocation child_alloc;
 
 double start_x, start_y;
+double stop_x, stop_y;
 
 gint pre_sw_width;
-gint pre_eb_width;
+
+gint pre_da_width;
 
 GString *selected_text;
 
 int width_offset, height_offset;
 
-gint have_selection;
-
 double lstart_x, lstart_y;
 
 int left_right;// 0 for left page, 1 for right page
-
-gint layout_motion_handler_id;
-gint layout_release_handler_id;
-
-gint event_box_motion_handler_id;
-gint event_box_release_handler_id;
-
-gint levent_box_motion_handler_id;
-gint levent_box_release_handler_id;
-
-gint sw_motion_handler_id;
 
 int scroll_count;
 guint scroll_time;
@@ -189,10 +168,9 @@ int sa_count;
 struct list_head NOTE_HEAD, HR_HEAD;
 
 void
-event_box_press( GdkEventButton *event );
-
-void
-layout_press( GdkEventButton *event );
+layout_press (GtkWidget      *widget,
+              GdkEventButton *event,
+              gpointer        user_data);
 
 gboolean
 layout_button_release_event (GtkWidget      *widget,
@@ -204,22 +182,11 @@ layout_motion_notify_event (GtkWidget      *widget,
                             GdkEventMotion *event,
                             gpointer        user_data);
 
-gboolean
-inside_obj( GdkEventButton *event );
 
 GtkWidget * 
 get_layout_child(GtkWidget      *layout, 
                  GdkEventButton *event);
-                
-void
-sw_button_press_cb( GtkWidget* widget, GdkEventButton *event, gpointer data );
-
-void
-sw_button_motion_cb( GtkWidget* widget, GdkEventMotion *event, gpointer data );
-
-void
-event_box_release_event_cb( GtkWidget* widget, GdkEvent *event, gpointer data );
-
+                                
 void
 toggle_hide_toolbar(void);
 
@@ -230,7 +197,7 @@ static gboolean
 scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data);
 
 static gboolean
-scrolled_window_scroll_cb(GtkWidget *widget, GdkEvent *event, gpointer data);
+da_scroll_cb(GtkWidget *widget, GdkEvent *event, gpointer data);
 
 gboolean
 touchpad_cb(GtkWidget *widget, GdkEvent *event, gpointer data);
@@ -243,12 +210,6 @@ text_selection_mode_cb(GtkWidget* widget, gpointer data);
 
 static void
 erase_text_highlight_mode_cb(GtkWidget* widget, gpointer data);
-
-static void
-levent_box_motion_event_cb( GtkWidget* widget, GdkEvent *event, gpointer data );
-
-static void
-event_box_motion_event_cb( GtkWidget* widget, GdkEvent *event, gpointer data );
 
 void
 on_findtext_key_release(GtkWidget *findtext, GdkEventKey *event, gpointer user_data);

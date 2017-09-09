@@ -24,6 +24,7 @@
 
 struct note{
  GtkWidget *comment;
+ char *str;
  gint x,y;
  gint page_num;
  struct list_head list;
