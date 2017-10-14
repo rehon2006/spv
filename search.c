@@ -1532,7 +1532,6 @@ void find_next( GtkWidget *findbar ){
    }
    
    //if we go to the last page, got back to page 1
-   //if(current_page_num == poppler_document_get_n_pages(doc)){
    if(current_page_num == poppler_document_get_n_pages(doc)){
     current_page_num = 0;
    }

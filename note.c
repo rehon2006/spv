@@ -232,8 +232,6 @@ void init_note(void){
                            atoi(pch3+1),
                            atoi(pch4+1));
       
-      
-   
       cairo_fill (cr);
                             
      }

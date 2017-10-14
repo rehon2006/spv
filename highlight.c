@@ -507,11 +507,14 @@ void erase_highlight(GtkWidget *widget){
 }
 
 void save_highlight(GtkWidget *widget){
-
+  
   int dup = 0;
-
+  
+  struct list_head TMP_HR;
+  INIT_LIST_HEAD(&TMP_HR);
+  
   if( !list_empty(&HR_HEAD) ){
-
+   
    struct list_head *tmp, *q;
   
    cairo_rectangle_int_t *tmp_hr = hr;
@@ -521,7 +524,7 @@ void save_highlight(GtkWidget *widget){
 
    if(!hr){
     return;
-   }
+   } 
    
    int a_x, a_y, a_width, a_height;
    int b_x, b_y, b_width, b_height;
@@ -636,7 +639,7 @@ void save_highlight(GtkWidget *widget){
          //  --------------
          // |  a | b       |
          //  --------------
-         
+        
          tmp1->width = b_x - a_x; 
          
          dup = 0;
@@ -661,6 +664,7 @@ void save_highlight(GtkWidget *widget){
          //  ---------
          
          if(dup_x == -1){
+         
           dup_x = b_x;
           dup_y = b_y;
           dup_width = b_width;
@@ -686,7 +690,7 @@ void save_highlight(GtkWidget *widget){
          else{
          
           if(  dup_x != b_x || dup_y != b_y  ){
-          
+           
            dup_x = b_x;
            dup_y = b_y;
            dup_width = b_width;
@@ -710,7 +714,7 @@ void save_highlight(GtkWidget *widget){
           
           }
           else{
-          
+           
            if( dup_y == b_y ){
            //remove other highlight regions on the same line
            
@@ -763,6 +767,7 @@ void save_highlight(GtkWidget *widget){
           dup = 1;
          }
          else{
+          
           if( dup != 2)
            dup = 0;
          }
@@ -776,7 +781,7 @@ void save_highlight(GtkWidget *widget){
        //used to remove multiple lines
        //add  condition b_width > a_width +1 for preventing removing highlight regions
        //which locates different lines but have same width as new highlight region 
-          
+        
        free(tmp1->color_name);
           
        list_del(&tmp1->list);
@@ -784,7 +789,7 @@ void save_highlight(GtkWidget *widget){
       }
         
       if( b_y >= a_y+a_height  ){
-        
+       
        if(dup != 2 || dup != 1)
         dup = 0;
         
@@ -825,7 +830,7 @@ void save_highlight(GtkWidget *widget){
       
      }
      
-     list_add(&(hg->list), &HR_HEAD);
+     list_add(&(hg->list), &TMP_HR);
      
      //draw highlight region
      
@@ -860,7 +865,7 @@ void save_highlight(GtkWidget *widget){
      
     } // end of if(!dup)
     else if( dup == 2 ){
-    
+     
      struct highlight_region *hg = (struct highlight_region *)malloc(sizeof(struct highlight_region));
 
      hg->x = b_x;
@@ -1050,6 +1055,33 @@ void save_highlight(GtkWidget *widget){
   
   if( dual_page_mode ){
    gtk_widget_queue_draw (ldraw_area);
+  }
+  
+  struct list_head *tmp;
+  struct list_head *q;
+  
+  list_for_each_safe(tmp, q, &TMP_HR){  
+  
+   struct highlight_region *tmp1;
+   tmp1= list_entry(tmp, struct highlight_region, list);
+   
+   struct highlight_region *hg = (struct highlight_region *)malloc(sizeof(struct highlight_region));
+   
+   hg->x = tmp1->x;
+   hg->y = tmp1->y;
+   hg->width = tmp1->width;
+   hg->height = tmp1->height;
+   hg->page_num = tmp1->page_num;
+     
+   hg->color_name = (char *)malloc(6+1);
+   strcpy( hg->color_name ,tmp1->color_name );
+   
+   list_add(&(hg->list), &HR_HEAD);
+   
+   free(tmp1->color_name);
+   list_del(&tmp1->list);
+   free(tmp1);
+   
   }
   
 }

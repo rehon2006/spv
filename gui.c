@@ -109,12 +109,10 @@ void full_screen_cb(void){
                      (gint)(tmp1->x*zoom_factor)+dp_width+1, 
                      (gint)(tmp1->y*zoom_factor)+height_offset);
     
-    
      gtk_widget_show(tmp1->comment);
     
     }
     else if( tmp1->page_num == current_page_num+1 ){
-    
     
      gtk_widget_show(tmp1->comment);
    
@@ -124,7 +122,6 @@ void full_screen_cb(void){
       gtk_widget_hide(tmp1->comment);
      }
  
-
    } 
    
   }else if( !dual_page_mode )
@@ -795,7 +792,6 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
   
  for ( ; NULL != selection ; selection = g_list_next (selection)) {
   
-  
   rectangle = (PopplerRectangle *)selection->data;
   
   tmp_hr->x = (int)(rectangle->x1*zoom_factor+0.5);
@@ -807,7 +803,7 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
  }
  
  if( mode == TEXT_HIGHLIGHT ){
- 
+  
   save_highlight( widget );
   
   if(hr){
@@ -2031,8 +2027,6 @@ static void size_increase_cb(GtkAllocation *allocation){
    
 }
 
-
-
 static void
 size_allocate_cb( GtkWidget *win, GtkAllocation *allocation, gpointer data){
  
@@ -2092,7 +2086,6 @@ size_allocate_cb( GtkWidget *win, GtkAllocation *allocation, gpointer data){
   
  }
  
- 
  if(da_width > pre_da_width ){
  
   //1, zoom in
@@ -2147,22 +2140,6 @@ on_findtext_key_release(GtkWidget *findtext, GdkEventKey *event, gpointer user_d
    if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) ){
     zoom_height();
    }
-   
-   /*
-   if( find_ptr ){
-         
-    invert_search_region();
-
-    g_list_free(find_ptr_head);
-    find_ptr_head = NULL;
-    find_ptr = NULL;
-    
-    if( dual_page_mode ){
-     lmatches = rmatches = NULL;
-    }
-    
-   }
-   */
    
    return;
   }
@@ -2907,7 +2884,6 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
       else
        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(inverted_colorMi), FALSE);
        
-      
      }
     
     direction = GTK_SCROLL_NONE;
@@ -3528,7 +3504,6 @@ textbuffer_changed_cb(GtkTextBuffer *buffer, gpointer user_data){
   count++;
   tmp_pch = pch;
   pch=strchr(pch+1,'\n');
-  
   
  }
    

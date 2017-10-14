@@ -69,9 +69,7 @@ static void dual_page(void){
  }else
   lpage = poppler_document_get_page(doc, current_page_num);
  
- //check
  poppler_page_get_size(lpage, &page_width, &page_height); 
- //check
  
  gint width, height;
  
@@ -390,8 +388,6 @@ void page_change(void){
                          (int)(tmp1->width),
                          (int)(tmp1->height));
     cairo_fill (cr);
-    
-    
     
    }
 

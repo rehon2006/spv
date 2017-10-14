@@ -314,7 +314,6 @@ zoom_in(void) {
                          (int)(tmp1->height));
     cairo_fill (cr);
     
-    
    }
    
   }
@@ -413,7 +412,6 @@ zoom_width(void) {
   cairo_set_operator (cr, CAIRO_OPERATOR_DIFFERENCE); 
   cairo_set_source_rgb (cr, 1., 1., 1.);
   
-   
  }
  else{
   
@@ -491,7 +489,6 @@ zoom_width(void) {
    
    cairo_fill (cr);
    
-    
   }
 
  }
