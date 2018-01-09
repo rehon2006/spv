@@ -55,8 +55,9 @@ void find_exit_cb( GtkWidget *widget, gpointer user_data ){
  
  GdkScreen *screen = gdk_screen_get_default ();
 
- if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) )
-  zoom_height();
+ if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) ){
+  zoom(ZOOM_HEIGHT);
+ }
  
 }
 

@@ -28,20 +28,13 @@
 
 static void dual_page(void){
  
- if( selection_surface ){
- 
-  cairo_surface_destroy (selection_surface);
-  selection_surface = NULL;
-   
- }
- 
  gtk_widget_show(ldraw_area);
  
  if(lpage){
   g_object_unref (G_OBJECT (lpage));
   lpage = NULL;
  }
- 
+
  GdkScreen *screen = gdk_screen_get_default ();
  char tmp_zf[10];
  
@@ -55,7 +48,7 @@ static void dual_page(void){
   sprintf(tmp_zf, "%.3f", ( (gdk_screen_get_width(screen)-18 )/2.0/ page_width));
   #endif
  }
- 
+
  double width_zf = atof(tmp_zf);
  
  if(zoom_factor == width_zf)
@@ -68,140 +61,37 @@ static void dual_page(void){
   lpage = poppler_document_get_page(doc, current_page_num);
  }else
   lpage = poppler_document_get_page(doc, current_page_num);
- 
- poppler_page_get_size(lpage, &page_width, &page_height); 
- 
- gint width, height;
- 
- width = (gint)(page_width*zoom_factor+0.5);
- height = (gint)(page_height*zoom_factor+0.5);
- 
+  
+ poppler_page_get_size(lpage, &page_width, &page_height);
+  
  if(lsurface)
   cairo_surface_destroy (lsurface);
+
+ //left page
+ page_setup(&lsurface, &lda_selection_region, ldraw_area, current_nc);
+
+ struct note_cache* nc_tmp = NULL;
+ 
+ if( note_cache )
+  nc_tmp = note_cache->next;
+ 
+ while( nc_tmp ){
   
- if(cr)
-  cairo_destroy (cr);
- 
- lsurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
- 
- cr = cairo_create(lsurface);
- 
- cairo_scale(cr, zoom_factor, zoom_factor);
-
- poppler_page_render(lpage, cr);
-
- if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
-    
-  cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
-  cairo_set_source_rgb (cr, 1., 1., 1.);
-  cairo_paint (cr);
-    
-  cairo_set_operator (cr, CAIRO_OPERATOR_DIFFERENCE); 
-  cairo_set_source_rgb (cr, 1., 1., 1.);
-    
- }
- else{
-   
-  cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
-    
-  if(PDF_BACKGROUND_COLOR_CHANGED){
-   cairo_set_source_rgb (cr, background_color[0], background_color[1], background_color[2]);
+  if( nc_tmp->page_num == current_page_num +2 ){
+   rcurrent_nc = nc_tmp;
+   break;
   }
   else{
-   cairo_set_source_rgb (cr, 1., 1., 1.);
+   rcurrent_nc = NULL;
   }
-    
- }
   
- cairo_paint (cr);
- 
- gtk_widget_set_size_request (ldraw_area, width, height);
- 
- da_width = width;
- da_height = height;
- 
- PopplerRectangle area = { 0, 0, 0, 0 };
- 
- area.x2 = width;
- area.y2 = height;
- 
- if(lda_selection_region){
-  cairo_region_destroy(lda_selection_region);
- } 
- 
- lda_selection_region = poppler_page_get_selected_region (lpage,
-                                                          zoom_factor,
-                                                          POPPLER_SELECTION_GLYPH,
-                                                          &area);
- 
- gtk_widget_queue_draw (ldraw_area);
- 
- if(lpage){
-  g_object_unref (G_OBJECT (lpage));
-  lpage = NULL;
- }
- 
- gtk_layout_set_size (GTK_LAYOUT(layout), width, height);
- 
- //highlight region
- 
- if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
-  cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
- }
- else{
-  cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
- }
- 
- GdkRGBA color;
- 
- struct list_head *tmp;
-
- list_for_each(tmp, &HR_HEAD){
-
-  struct highlight_region *tmp1;
-  tmp1= list_entry(tmp, struct highlight_region, list);
- 
-  if(tmp1->page_num ==  current_page_num +1 ){
-    
-     char *rgb = (char*)malloc(8);
-     sprintf(rgb, "#%s", tmp1->color_name);
-
-     gdk_rgba_parse(&color, rgb);
-   
-     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-   
-     free(rgb);
-     
-     cairo_rectangle (cr, (int)(tmp1->x),
-                          (int)(tmp1->y), 
-                          (int)(tmp1->width),
-                          (int)(tmp1->height));
-     
-     cairo_fill (cr);
-     
-    }
+  nc_tmp = nc_tmp->next;
   
  }
- //highlight region
  
- //comments
-  list_for_each(tmp, &NOTE_HEAD){
-
-   struct note *tmp1;
-   tmp1= list_entry(tmp, struct note, list);
-   
-   if( tmp1->page_num == current_page_num+1 ){
-    
-    gtk_widget_hide(tmp1->comment);
-    gtk_widget_show(tmp1->comment);
-    
-   }
-   
-  }
-  //comments
-  
-  zoom_dual_page();//right page
-  
+ //right page
+ page_setup(&surface, &da_selection_region, draw_area, rcurrent_nc);
+ 
 }
 
 void dual_page_cb(void){
@@ -232,7 +122,7 @@ void dual_page_cb(void){
   
   dual_page_mode = FALSE;
   
-  zoom_width();
+  zoom(ZOOM_WIDTH);
   
   gtk_widget_hide(ldraw_area);
   
@@ -241,11 +131,31 @@ void dual_page_cb(void){
    lsurface = NULL;
   }
   
+  if( rcurrent_nc ){
+  
+   struct list_head *tmp;
+  
+   list_for_each(tmp, &rcurrent_nc->CM_HEAD){
+
+    struct note *tmp1;
+    tmp1= list_entry(tmp, struct note, list);
+   
+    if( gtk_widget_is_visible(tmp1->comment) ){
+     gtk_widget_hide(tmp1->comment);
+    }
+   
+   }//list_for_each(tmp, &current_nc->CM_HEAD)
+  
+   rcurrent_nc = NULL;
+  
+  }
+   
  }
+ 
 }
 
 void page_change(void){
- 
+
  gint width, height;
 
  char *page_str = (char*)malloc(100);
@@ -263,341 +173,101 @@ void page_change(void){
  
  free(page_str);
  
- if( selection_surface ){
+ struct list_head *tmp;
+ 
+ if( current_nc ){
+  
+  list_for_each(tmp, &current_nc->CM_HEAD){
 
-  cairo_surface_destroy (selection_surface);
-  selection_surface = NULL;
+   struct note *tmp1;
+   tmp1= list_entry(tmp, struct note, list);
+   
+   if( gtk_widget_is_visible(tmp1->comment) ){
+    gtk_widget_hide(tmp1->comment);
+   }
+   
+  }//list_for_each(tmp, &current_nc->CM_HEAD)
   
  }
  
- gint page_num = poppler_document_get_n_pages(doc);
+ if( rcurrent_nc ){
+  
+  list_for_each(tmp, &rcurrent_nc->CM_HEAD){
+
+   struct note *tmp1;
+   tmp1= list_entry(tmp, struct note, list);
+   
+   if( gtk_widget_is_visible(tmp1->comment) ){
+    gtk_widget_hide(tmp1->comment);
+   }
+   
+  }//list_for_each(tmp, &current_nc->CM_HEAD)
+  
+ }
+ 
+ //hide previous page's comment
+ 
+ struct note_cache* nc_tmp = NULL;
+ 
+ if( note_cache )
+  nc_tmp = note_cache->next;
+ 
+ while( nc_tmp ){
+  
+  if( current_page_num == nc_tmp->page_num -1 ){
+   current_nc = nc_tmp;
+   break;
+  }
+  else{
+   current_nc = NULL;
+  }
+ 
+  nc_tmp = nc_tmp->next;
+  
+ }
+ //get current_nc
+ 
+ //get rcurrent_nc
+ if( note_cache )
+  nc_tmp = note_cache->next;
+  
+ while( nc_tmp ){
+   
+  if( nc_tmp->page_num == current_page_num +2 ){
+   rcurrent_nc = nc_tmp;
+   break;
+  }
+  else{
+   rcurrent_nc = NULL;
+  }
+ 
+  nc_tmp = nc_tmp->next;
+  
+ }
+  
+ //get rcurrent_nc
  
  if( dual_page_mode ){
+  //left page
+  page_setup(&lsurface, &lda_selection_region, ldraw_area, current_nc);
  
-  if( lpage ){
-   g_object_unref (G_OBJECT (lpage));
-   lpage = NULL;
-  }
+  //right page
+  page_setup(&surface, &da_selection_region, draw_area, rcurrent_nc); 
   
-  if(current_page_num == page_num-1){
-   current_page_num--;
-  }
+  if( current_nc )
+   display_comment(&current_nc->CM_HEAD);
   
-  lpage = poppler_document_get_page(doc, current_page_num);
+  if( rcurrent_nc )
+   display_comment(&rcurrent_nc->CM_HEAD);
   
-  poppler_page_get_size(lpage, &page_width, &page_height);
-  
-  gint width, height;
- 
-  width = (gint)(page_width*zoom_factor+0.5);
-  height = (gint)(page_height*zoom_factor+0.5);
-  
-  if(lsurface)
-   cairo_surface_destroy (lsurface);
-  
-  if(cr)
-   cairo_destroy (cr);
-  
-  lsurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
- 
-  cr = cairo_create(lsurface);
-
-  cairo_scale(cr, zoom_factor, zoom_factor);
-
-  poppler_page_render(lpage, cr);
-  
-  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
-   
-   cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
-   cairo_set_source_rgb (cr, 1., 1., 1.);
-   cairo_paint (cr);
-   
-   cairo_set_operator (cr, CAIRO_OPERATOR_DIFFERENCE); 
-   cairo_set_source_rgb (cr, 1., 1., 1.);
-   
-  }
-  else{
-   
-   cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
-
-   if(PDF_BACKGROUND_COLOR_CHANGED)
-    cairo_set_source_rgb (cr, background_color[0], background_color[1], background_color[2]);
-   else
-    cairo_set_source_rgb (cr, 1., 1., 1.);
-    
-  }
-  
-  cairo_paint (cr);
-  
-  PopplerRectangle area = { 0, 0, 0, 0 };
- 
-  area.x2 = width;
-  area.y2 = height;
-  
-  if(lda_selection_region){
-  
-   cairo_region_destroy(lda_selection_region);
-  
-   lda_selection_region = poppler_page_get_selected_region (lpage,
-                                                           zoom_factor,
-                                                           POPPLER_SELECTION_GLYPH,
-                                                           &area);
- 
-  }
-  
-  gtk_widget_set_size_request (ldraw_area, width, height);
- 
-  da_width = width;
-  da_height = height;
-  
-  gtk_widget_queue_draw (ldraw_area);
-  
-  gtk_layout_set_size (GTK_LAYOUT(layout), width, height);
-
-  //highlight region
-  
-  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
-   cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
-  }
-  else{
-   cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
-  }
-  
-  GdkRGBA color;
-  
-  struct list_head *tmp;
-  
-  list_for_each(tmp, &HR_HEAD){
-
-   struct highlight_region *tmp1;
-   tmp1= list_entry(tmp, struct highlight_region, list);
-   
-   if(tmp1->page_num ==  current_page_num +1 ){
-    
-    char *rgb = (char*)malloc(8);
-    sprintf(rgb, "#%s", tmp1->color_name);
-    
-    gdk_rgba_parse(&color, rgb);
-   
-    cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-    
-    free(rgb);
-    
-    cairo_rectangle (cr, (int)(tmp1->x),
-                         (int)(tmp1->y), 
-                         (int)(tmp1->width),
-                         (int)(tmp1->height));
-    cairo_fill (cr);
-    
-   }
-
-  }
-  
-  //highlight region
-  
-  gtk_widget_queue_draw (ldraw_area);
-  
- } // end of if( dual_page_mode )
- 
- //single page mode
- 
- if(page){
-  g_object_unref (G_OBJECT (page));
-  page = NULL;
- }
- 
- if( !dual_page_mode )
-  page = poppler_document_get_page(doc, current_page_num);
- else{
-  if(current_page_num == page_num-1){
-   page = poppler_document_get_page(doc, current_page_num);
-  }else{
-   page = poppler_document_get_page(doc, current_page_num+1);
-  }
- }
- 
- poppler_page_get_size(page, &page_width, &page_height); 
- 
- width = (gint)((page_width*zoom_factor)+0.5);
- height = (gint)((page_height*zoom_factor)+0.5);
- 
- if(surface)
-  cairo_surface_destroy (surface);
-  
- if(cr)
-  cairo_destroy (cr);
- 
- surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
- 
- cr = cairo_create(surface);
- 
- cairo_scale(cr, zoom_factor, zoom_factor);
- 
- poppler_page_render(page, cr);
- 
- if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
-    
-  cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
-  cairo_set_source_rgb (cr, 1., 1., 1.);
-  cairo_paint (cr);
-    
-  cairo_set_operator (cr, CAIRO_OPERATOR_DIFFERENCE); 
-  cairo_set_source_rgb (cr, 1., 1., 1.);
-    
  }
  else{
-   
-  cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
-    
-  if(PDF_BACKGROUND_COLOR_CHANGED){
-   cairo_set_source_rgb (cr, background_color[0], background_color[1], background_color[2]);
-  }
-  else{
-   cairo_set_source_rgb (cr, 1., 1., 1.);
-  }
-    
- }
  
- cairo_paint (cr);
- 
- PopplerRectangle area = { 0, 0, 0, 0 };
- 
- area.x2 = width;
- area.y2 = height;
- 
- if(da_selection_region){
-  cairo_region_destroy(da_selection_region);
+  page_setup(&surface, &da_selection_region, draw_area, current_nc);
   
-  da_selection_region = poppler_page_get_selected_region (page,
-                                                          zoom_factor,
-                                                          POPPLER_SELECTION_GLYPH,
-                                                          &area);
- 
- }
- 
- gtk_widget_queue_draw (draw_area);
- 
- gtk_layout_set_size (GTK_LAYOUT(layout), width, height);
- 
- struct list_head *tmp;
-
- list_for_each(tmp, &NOTE_HEAD){
-
-  struct note *tmp1;
-  tmp1= list_entry(tmp, struct note, list);
+  if(current_nc)
+   display_comment(&current_nc->CM_HEAD);
   
-  
-  if(!dual_page_mode){
-   if( tmp1->page_num == current_page_num+1 ){
-    
-    gtk_widget_show(tmp1->comment);
-    gtk_widget_queue_draw (tmp1->comment);
-    
-    
-   }else{
-    gtk_widget_hide(tmp1->comment);
-   }
-   
-  }else{ //dual-page mode
-   
-   if( tmp1->page_num == current_page_num+2 ){
-    
-    int dp_width = (int)(zoom_factor*page_width);
-    
-    gtk_layout_move(GTK_LAYOUT(layout), tmp1->comment, (gint)(tmp1->x*zoom_factor)+dp_width+1, (gint)(tmp1->y*zoom_factor)+height_offset);
-    
-    
-    gtk_widget_show(tmp1->comment);
-    
-   }
-   else if( tmp1->page_num == current_page_num+1 ){
-    
-    gtk_widget_show(tmp1->comment);
-   
-    gtk_layout_move(GTK_LAYOUT(layout), tmp1->comment, (gint)(tmp1->x*zoom_factor), (gint)(tmp1->y*zoom_factor)+height_offset);
-    
-   }else{
-    gtk_widget_hide(tmp1->comment);
-   }
-  
-  }
-
- } 
- 
-  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
-   cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
-  }
-  else{
-   cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
-  }
-  
-  GdkRGBA color;
-  
-  list_for_each(tmp, &HR_HEAD){
-
-   struct highlight_region *tmp1;
-   tmp1= list_entry(tmp, struct highlight_region, list);
-   
-   if(!dual_page_mode){
-    if(tmp1->page_num ==  current_page_num +1 ){
-    
-     char *rgb = (char*)malloc(8);
-     sprintf(rgb, "#%s", tmp1->color_name);
-
-     gdk_rgba_parse(&color, rgb);
-   
-     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-     
-     free(rgb);
-     
-     cairo_rectangle (cr, (int)(tmp1->x),
-                          (int)(tmp1->y), 
-                          (int)(tmp1->width),
-                          (int)(tmp1->height));
-     
-     cairo_fill (cr);
-     
-    }
-   }
-   else{
-   
-    if(tmp1->page_num ==  current_page_num +2 ){
-    
-     char *rgb = (char*)malloc(8);
-     sprintf(rgb, "#%s", tmp1->color_name);
-
-     gdk_rgba_parse(&color, rgb);
-   
-     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-     
-     free(rgb);
-     
-     cairo_rectangle (cr, (int)(tmp1->x),
-                          (int)(tmp1->y), 
-                          (int)(tmp1->width),
-                          (int)(tmp1->height));
-     
-     cairo_fill (cr);
-    }
-   
-   }
-
-  }
-
- if(find_ptr){
-  find_ptr = NULL;
-  g_list_free(find_ptr_head);
-  find_ptr_head = NULL;
- }
- 
- if(page){
-  g_object_unref (G_OBJECT (page));
-  page = NULL;
- }
- 
- if(lpage){
-  g_object_unref (G_OBJECT (lpage));
-  lpage = NULL;
  }
  
 }
@@ -699,4 +369,188 @@ next_page(void) {
   }
 
  }
+}
+
+void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region, GtkWidget *draw_area, struct note_cache *current_nc){
+
+ if( selection_surface ){
+ 
+  cairo_surface_destroy (selection_surface);
+  selection_surface = NULL;
+  
+  gtk_widget_queue_draw (draw_area); 
+ }
+ 
+ gint width, height;
+
+ width = (gint)((page_width*zoom_factor)+0.5);
+ height = (gint)((page_height*zoom_factor)+0.5);
+
+ if(*surface)
+  cairo_surface_destroy (*surface);
+  
+ if(cr)
+  cairo_destroy (cr);
+ 
+ *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+
+ cr = cairo_create(*surface);
+
+ cairo_scale(cr, zoom_factor, zoom_factor);
+ 
+ if( !dual_page_mode ){
+ 
+  if(page == NULL){
+   gint page_num = poppler_document_get_n_pages(doc);
+   
+   if(current_page_num > page_num-1) 
+    current_page_num = page_num-1;
+   
+   page = poppler_document_get_page(doc, current_page_num);
+  }
+  
+ }
+ else{ //for dual page mode
+  
+  if( *surface == lsurface ){ //left page
+   
+   if(page){
+    g_object_unref (G_OBJECT (page));
+    page = NULL;
+   }
+   
+   if( current_page_num == poppler_document_get_n_pages(doc)-1 ){
+    current_page_num--;
+    page = poppler_document_get_page(doc, current_page_num);
+   }else
+    page = poppler_document_get_page(doc, current_page_num);
+   
+  }
+  else {// right page
+   
+   gint page_num = poppler_document_get_n_pages(doc);
+ 
+   if(page){
+    g_object_unref (G_OBJECT (page));
+    page = NULL;
+   }
+ 
+   if( current_page_num+1 <= page_num-1 ){
+  
+    page = poppler_document_get_page(doc, current_page_num+1);
+  
+   }
+   else if( current_page_num == page_num-1 ){
+    page = poppler_document_get_page(doc, current_page_num);
+   } 
+   
+  }
+  
+ }
+
+ poppler_page_render(page, cr);
+ 
+ if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+   
+  cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
+  cairo_set_source_rgb (cr, 1., 1., 1.);
+  cairo_paint (cr);
+   
+  cairo_set_operator (cr, CAIRO_OPERATOR_DIFFERENCE); 
+  cairo_set_source_rgb (cr, 1., 1., 1.);
+   
+ }
+ else{
+  
+  cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
+
+  if(PDF_BACKGROUND_COLOR_CHANGED)
+   cairo_set_source_rgb (cr, background_color[0], background_color[1], background_color[2]);
+  else
+   cairo_set_source_rgb (cr, 1., 1., 1.);
+    
+ }
+  
+ cairo_paint (cr);
+ 
+ PopplerRectangle area = { 0, 0, 0, 0 };
+ 
+ area.x2 = width;
+ area.y2 = height;
+ 
+ if(*da_selection_region){
+  cairo_region_destroy(*da_selection_region);
+ }
+ 
+ *da_selection_region = poppler_page_get_selected_region (page,
+                                                          zoom_factor,
+                                                          POPPLER_SELECTION_GLYPH,
+                                                          &area);
+  
+ gtk_widget_set_size_request (draw_area, width, height);
+ 
+ da_width = width;
+ da_height = height;
+  
+ gtk_widget_queue_draw (draw_area);
+  
+ if( page ){
+  g_object_unref (G_OBJECT (page));
+  page = NULL;
+ }
+
+ gtk_layout_set_size (GTK_LAYOUT(layout), width, height);
+ 
+ GdkRGBA color;
+  
+ struct list_head *tmp;
+
+ if( current_nc ){
+  
+  list_for_each(tmp, &current_nc->HR_HEAD){
+
+   struct highlight_region *tmp1;
+   tmp1= list_entry(tmp, struct highlight_region, list);
+   
+   char *rgb = (char*)malloc(8);
+   sprintf(rgb, "#%s", tmp1->color_name);
+
+   gdk_rgba_parse(&color, rgb);
+   
+   if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+     
+    cairo_set_source_rgb (cr, 1, 1 , 1);
+    cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+   
+    cairo_rectangle (cr, tmp1->x,
+                         tmp1->y, 
+                         tmp1->width,
+                         tmp1->height);
+      
+    cairo_fill (cr);
+      
+   }
+   
+   cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+   
+   cairo_set_source_rgb (cr, color.red, color.green, color.blue);
+    
+   free(rgb);
+   
+   cairo_rectangle (cr, tmp1->x,
+                        tmp1->y, 
+                        tmp1->width,
+                        tmp1->height);
+   cairo_fill (cr);
+    
+  }//list_for_each(tmp, &HR_HEAD
+  
+ }
+  
+ gtk_widget_queue_draw (draw_area);
+  
+ if( find_ptr ){
+  invert_search_region();
+ }
+ 
 }

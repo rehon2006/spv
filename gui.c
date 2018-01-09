@@ -63,8 +63,9 @@ void full_screen_cb(void){
   GtkAllocation win_alloc;
   gtk_widget_get_allocation (win, &win_alloc);
   
-  if( win_alloc.height > da_height )
-    zoom_height();
+  if( win_alloc.height > da_height ){
+   zoom(ZOOM_HEIGHT);
+  }
   
  }
  else{ 
@@ -94,38 +95,9 @@ void full_screen_cb(void){
    gtk_layout_move(GTK_LAYOUT(layout), draw_area,dp_width+1, height_offset);
    gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, height_offset);
    
-   struct list_head *tmp;
-
-   list_for_each(tmp, &NOTE_HEAD){
-
-    struct note *tmp1;
-    tmp1= list_entry(tmp, struct note, list);
-   
-    if( tmp1->page_num == current_page_num+2 ){
-    
-     int dp_width = (int)(zoom_factor*page_width);
-    
-     gtk_layout_move(GTK_LAYOUT(layout), tmp1->comment, 
-                     (gint)(tmp1->x*zoom_factor)+dp_width+1, 
-                     (gint)(tmp1->y*zoom_factor)+height_offset);
-    
-     gtk_widget_show(tmp1->comment);
-    
-    }
-    else if( tmp1->page_num == current_page_num+1 ){
-    
-     gtk_widget_show(tmp1->comment);
-   
-     gtk_layout_move(GTK_LAYOUT(layout), tmp1->comment, (gint)(tmp1->x*zoom_factor), (gint)(tmp1->y*zoom_factor)+height_offset);
-    
-     }else{
-      gtk_widget_hide(tmp1->comment);
-     }
- 
-   } 
-   
-  }else if( !dual_page_mode )
-   zoom_width();
+  }else if( !dual_page_mode ){
+   zoom(ZOOM_WIDTH);
+  }
   
  }
  
@@ -214,8 +186,9 @@ void toggle_hide_toolbar(void){
   
  GdkScreen *screen = gdk_screen_get_default ();
  
- if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) )
-  zoom_height();
+ if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) ){
+  zoom(ZOOM_HEIGHT);
+ }
     
 }
 
@@ -452,27 +425,6 @@ static gboolean draw_area_draw( GtkWidget *widget, cairo_t *cr, gpointer data ){
  
 }
 
-static void
-da_size_allocate_cb( GtkWidget *win, GtkAllocation *allocation, gpointer data){
-
- GtkAllocation sw_alloc;
- gtk_widget_get_allocation (scrolled_window, &sw_alloc);
-
- if( da_width > pre_da_width ){
-  
-  if(width_offset < 0)
-   width_offset = 0;
-  
- }
- else if( da_width < pre_da_width ){
-  
-  if(width_offset < 0)
-   width_offset = 0;
-  
- }
- 
-}
-
 static gboolean
 selections_render( GtkWidget *widget ){
  
@@ -488,9 +440,9 @@ selections_render( GtkWidget *widget ){
  
  cairo_t *cr;
  
- selection_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
-						 (gint)((page_width*zoom_factor)+0.5), 
-						 (gint)((page_height*zoom_factor)+0.5));
+ selection_surface = cairo_image_surface_create ( CAIRO_FORMAT_ARGB32,
+						  (gint)((page_width*zoom_factor)+0.5), 
+						  (gint)((page_height*zoom_factor)+0.5));
   
  cr = cairo_create (selection_surface);
  
@@ -649,7 +601,7 @@ da_button_press (GtkWidget *widget, GdkEventButton *event, gpointer data){
 
 static gboolean
 da_motion_notify (GtkWidget *widget, GdkEventMotion *event, gpointer data){
-
+ 
  if( start_x != -1.0){
   
   gdouble page_width, page_height;
@@ -658,7 +610,7 @@ da_motion_notify (GtkWidget *widget, GdkEventMotion *event, gpointer data){
   stop_y = event->y;
   
   selections_render( widget );
-  
+   
  }
  else{
  
@@ -672,6 +624,7 @@ da_motion_notify (GtkWidget *widget, GdkEventMotion *event, gpointer data){
    
   }
   else if( widget == ldraw_area ){
+  
    over_text = cairo_region_contains_point (lda_selection_region,
                                             event->x,
                                             event->y);
@@ -804,7 +757,61 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
  
  if( mode == TEXT_HIGHLIGHT ){
   
-  save_highlight( widget );
+  //get current_nc
+  if( !current_nc ){
+   
+   struct note_cache *tmp = note_cache->next;
+   
+   note_cache->next = (struct note_cache*)malloc(sizeof(struct note_cache));
+   note_cache->next->next = tmp;
+   tmp = note_cache->next;
+  
+   INIT_LIST_HEAD(&tmp->CM_HEAD);
+   INIT_LIST_HEAD(&tmp->HR_HEAD);
+   tmp->page_num = current_page_num + 1;
+  
+   current_nc = tmp;
+   
+  }
+  //get current_nc
+   
+  if( !dual_page_mode ){ 
+   
+   save_highlight( widget, &current_nc->HR_HEAD );
+  
+  }
+  else{
+   
+   if( widget == ldraw_area ){
+   
+    save_highlight( widget, &current_nc->HR_HEAD );
+    
+   }
+   else if( widget == draw_area ){
+   
+    //get rcurrent_nc
+    if( !rcurrent_nc ){
+   
+     struct note_cache *tmp = note_cache->next;
+     
+     note_cache->next = (struct note_cache*)malloc(sizeof(struct note_cache));
+     note_cache->next->next = tmp;
+     tmp = note_cache->next;
+  
+     INIT_LIST_HEAD(&tmp->CM_HEAD);
+     INIT_LIST_HEAD(&tmp->HR_HEAD);
+     tmp->page_num = current_page_num + 2;
+     
+     rcurrent_nc = tmp;
+     
+    }
+    //get rcurrent_nc
+    
+    save_highlight( widget, &rcurrent_nc->HR_HEAD );
+    
+   }
+   
+  }
   
   if(hr){
    free(hr);
@@ -813,8 +820,29 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
   
  }
  else if( mode == ERASE_TEXT_HIGHLIGHT ){
- 
-  erase_highlight( widget );
+  
+  if( !dual_page_mode ){ 
+   
+   if( current_nc )
+    erase_highlight( widget, &current_nc->HR_HEAD );
+  
+  }
+  else{
+   
+   if( widget == ldraw_area ){
+    
+    if( current_nc )
+     erase_highlight( widget, &current_nc->HR_HEAD );
+    
+   }
+   else if( widget == draw_area ){
+    
+    if( rcurrent_nc )
+     erase_highlight( widget, &rcurrent_nc->HR_HEAD );
+    
+   }
+   
+  }
   
   if(ihr){
    free(ihr);
@@ -962,9 +990,6 @@ void init_gui(void){
  page_change_str = NULL;
 
  FONT_SIZE = 11;
-
- INIT_LIST_HEAD(&NOTE_HEAD);
- INIT_LIST_HEAD(&HR_HEAD);
  
  selected_text = NULL;
    
@@ -1267,17 +1292,17 @@ void init_gui(void){
  zoom_in_button = gtk_button_new_from_icon_name ("zoom-in", GTK_ICON_SIZE_BUTTON);
  gtk_widget_set_can_focus(zoom_in_button, FALSE);
  g_signal_connect(G_OBJECT(zoom_in_button), "clicked", 
-        G_CALLBACK(zoom_in), NULL);
+        G_CALLBACK(zoom_in_cb), NULL);
  
  zoom_out_button = gtk_button_new_from_icon_name ("zoom-out", GTK_ICON_SIZE_BUTTON);
  gtk_widget_set_can_focus(zoom_out_button, FALSE);
  g_signal_connect(G_OBJECT(zoom_out_button), "clicked", 
-        G_CALLBACK(zoom_out), NULL);
+        G_CALLBACK(zoom_out_cb), NULL);
  
  zoom_width_button = gtk_button_new_from_icon_name ("zoom-fit-best", GTK_ICON_SIZE_BUTTON);
  gtk_widget_set_can_focus(zoom_width_button, FALSE);
  g_signal_connect(G_OBJECT(zoom_width_button), "clicked", 
-        G_CALLBACK(zoom_width), NULL);
+        G_CALLBACK(zoom_width_cb), NULL);
  
  prev_page_button = gtk_button_new_from_icon_name ("go-previous", GTK_ICON_SIZE_BUTTON);
  gtk_widget_set_can_focus(prev_page_button, FALSE);
@@ -1365,8 +1390,6 @@ void init_gui(void){
                    G_CALLBACK (draw_area_draw), 
                    NULL);
  
- g_signal_connect(G_OBJECT(draw_area), "size-allocate", G_CALLBACK(da_size_allocate_cb), NULL);
- 
  g_signal_connect (G_OBJECT (draw_area), "button-press-event",
 	           G_CALLBACK (da_button_press),
 		   NULL);
@@ -1403,7 +1426,6 @@ void init_gui(void){
                   G_CALLBACK(da_touch_cb),
                   NULL);
  
- 
  //drawarea
  
  layout = gtk_layout_new(NULL, NULL);
@@ -1414,20 +1436,6 @@ void init_gui(void){
  height = (gint)((page_height*zoom_factor)+0.5);
  
  gtk_layout_set_size(GTK_LAYOUT(layout), width, height);
-     
- gtk_widget_add_events (layout, GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
- 
- g_signal_connect (G_OBJECT (layout), "button-press-event", 
-                   G_CALLBACK (layout_press), 
-                   NULL);
- 
- g_signal_connect (G_OBJECT (layout), "motion-notify-event",
-	           G_CALLBACK (layout_motion_notify_event),
-		   NULL);
-		   
- g_signal_connect (G_OBJECT (layout), "button-release-event",
-	           G_CALLBACK (layout_button_release_event),
-		   NULL);
  
  gtk_layout_put (GTK_LAYOUT (layout), ldraw_area, 0, 0);
  gtk_layout_put (GTK_LAYOUT (layout), draw_area, 0, 0);
@@ -1448,583 +1456,67 @@ void init_gui(void){
  
 }
 
-static void size_decrease_cb(GtkAllocation *allocation){
+static void size_adjust_cb(GtkAllocation *allocation){
+ 
+ double width_zf;
  
  GtkAllocation sw_alloc;
  gtk_widget_get_allocation (scrolled_window, &sw_alloc);
  
- GtkAllocation win_alloc;
- gtk_widget_get_allocation (win, &win_alloc);
+ #if GTK_CHECK_VERSION(3,18,10)
+ width_zf = (sw_alloc.width - 2)/page_width;
+ #else
+ width_zf = (sw_alloc.width - 2 - 12 )/page_width;
+ #endif
  
- GtkAllocation tb_alloc;
- gtk_widget_get_allocation(toolbar, &tb_alloc);
+ if( zoom_factor >= width_zf){
  
- if( allocation->height <= da_height ){
-    
-  if( allocation->width <= da_width ){
-   gtk_layout_move(GTK_LAYOUT(layout), draw_area, 0, 0);
-  }
-  else{
-   #if GTK_CHECK_VERSION(3,18,10)
-   width_offset = (allocation->width - da_width)/2;
-   #else
-   width_offset = (allocation->width - da_width)/2-7;
-   #endif 
-   
-   if( !dual_page_mode){
-    gtk_layout_move(GTK_LAYOUT(layout), draw_area, width_offset, 0);
-   }
-   else{
-    int dp_width = (int)(zoom_factor*page_width);
-    
-    if(page_width >= page_height){//landscape
-     
-     gtk_layout_move(GTK_LAYOUT(layout), draw_area,dp_width+1, height_offset);
-     gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, height_offset);
-     
-    }
-    else{//portrait
-     
-     gtk_layout_move(GTK_LAYOUT(layout), draw_area,dp_width+1, 0);
-     gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, 0);
-     
-    }
-   
-   }
-     
-  }
-    
- }else{
-   
-   width_offset = (allocation->width - da_width)/2;
-   
-   if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(full_screenMi) ) ){
-    
-    GdkScreen *screen = gdk_screen_get_default ();
-    int screen_height = gdk_screen_get_height(screen);
-    
-    height_offset = ( screen_height - 2 - da_height )/2;
-    
-   }
-   else{
-    
-    height_offset =  (allocation->height - da_height)/2;
-    
-   }
-   
-   if( !dual_page_mode ){
-    gtk_layout_move(GTK_LAYOUT(layout), draw_area, width_offset, height_offset);
-    
-   }
-   else{
-    int dp_width = (int)(zoom_factor*page_width);
-    
-    if(page_width >= page_height){//landscape
-     
-     gtk_layout_move(GTK_LAYOUT(layout), draw_area,dp_width+1, height_offset);
-     gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, height_offset);
-     
-    }
-    else{//portrait
-     
-     gtk_layout_move(GTK_LAYOUT(layout), draw_area,dp_width+1, 0);
-     gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, 0);
-     
-    }
-    
-   } 
+  width_offset = 0;
+  height_offset = 0;
+  
+  gtk_layout_move(GTK_LAYOUT(layout), draw_area, 0, 0);
+  
  }
- 
- //comment
- struct list_head *tmp;
-
-  list_for_each(tmp, &NOTE_HEAD){
-
-   struct note *tmp1;
-   tmp1= list_entry(tmp, struct note, list);
-    
-    if( zoom_factor > 1.0 ){
-     
-     if( allocation->height <= da_height ){
-     
-      if( allocation->width >= da_width ){
-      
-       if( !dual_page_mode ){
-        gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor)+width_offset,
-         (gint)(tmp1->y*zoom_factor));
-       }
-       else{ // dual-page mode
-         
-         int dp_width = (int)(zoom_factor*page_width);
-         
-         height_offset = (allocation->height - da_height)/2;
-         width_offset = (allocation->width - da_width)/2;
-         
-         if(height_offset < 0)
-          height_offset = 0;
-         
-         //left page
-         if(tmp1->page_num == current_page_num + 1){
-          gtk_layout_move(GTK_LAYOUT(layout),
-           tmp1->comment,
-           (gint)(tmp1->x*zoom_factor),
-           (gint)(tmp1->y*zoom_factor)+height_offset);
-          }
-         //left page
-         
-         if( page_width >= page_height ){
-          
-          if( tmp1->page_num == current_page_num + 2 ){
-           
-           gtk_layout_move(GTK_LAYOUT(layout),
-            tmp1->comment,
-            (gint)(tmp1->x*zoom_factor)+dp_width+1,
-            (gint)(tmp1->y*zoom_factor)+height_offset);
-         
-          }
-         }
-         else{
-         
-          if( tmp1->page_num == current_page_num + 2 ){
-           
-           gtk_layout_move(GTK_LAYOUT(layout),
-            tmp1->comment,
-            (gint)(tmp1->x*zoom_factor)+dp_width+2,
-            (gint)(tmp1->y*zoom_factor)+height_offset);
-         
-          }
-         
-         }
-         
-       }
-       
-      }
-      else{
-       
-       gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor),
-         (gint)(tmp1->y*zoom_factor));
-      
-      }
-      
-     }
-     else{
-      
-      if( !dual_page_mode ){
-      
-       height_offset = (allocation->height - da_height)/2;
-       
-       if( height_offset < 0 )
-        height_offset = 0;
-       
-       gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor)+width_offset,
-         (gint)(tmp1->y*zoom_factor)+height_offset);
-      }
-      else{ //dual-page mode
-       
-       int dp_width = (int)(zoom_factor*page_width);
-       
-       if(tmp1->page_num == current_page_num + 1){
-        
-         if(page_width < page_height){ 
-         
-          gtk_layout_move(GTK_LAYOUT(layout),
-                          tmp1->comment,
-                          (gint)(tmp1->x*zoom_factor),
-                          (gint)(tmp1->y*zoom_factor));
-         
-         }
-         else{ //landscape
-          
-          height_offset = (allocation->height - da_height)/2;
-          
-          gtk_layout_move(GTK_LAYOUT(layout),
-                          tmp1->comment,
-                          (gint)(tmp1->x*zoom_factor),
-                          (gint)(tmp1->y*zoom_factor)+height_offset);
-          
-         }
-         
-       }
-       else if(tmp1->page_num == current_page_num + 2){
-        
-        if(page_width < page_height){
-
-         gtk_layout_move(GTK_LAYOUT(layout),
-                         tmp1->comment,
-                         (gint)((tmp1->x)*zoom_factor)+dp_width+2,
-                         (gint)(tmp1->y*zoom_factor));
-        
-        }
-        else{
-        
-         height_offset = (allocation->height - da_height)/2;
-         
-         gtk_layout_move(GTK_LAYOUT(layout),
-                         tmp1->comment,
-                         (gint)((tmp1->x)*zoom_factor)+dp_width+2,
-                         (gint)(tmp1->y*zoom_factor)+height_offset);
-         
-        }
-        
-       } //end of else if(tmp1->page_num == current_page_num + 2
-       
-      }
-         
-     }
-     
-    }
-    else if( zoom_factor == 1.0 ){
-     
-     if( allocation->height > da_height ){
-      
-      height_offset =  (allocation->height - da_height)/2;
-      
-      if( height_offset < 0 )
-       height_offset = 0;
-       
-      gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor)+width_offset,
-         (gint)(tmp1->y*zoom_factor)+height_offset);
-     
-     }
-     else{
-     
-      gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor)+width_offset,
-         (gint)(tmp1->y*zoom_factor));
-     }
-    }
-    else{ //zoom_factor < 1.0
-     
-     height_offset =  (allocation->height - da_height)/2;
-     
-     gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor)+width_offset,
-         (gint)(tmp1->y*zoom_factor));
-    
-    }
-   
-  }
- //comment
- 
-}
-
-static void size_increase_cb(GtkAllocation *allocation){
- 
- if( allocation->height <= da_height ){
-  
-  if( allocation->width <= da_width ){
-  
-   gtk_layout_move(GTK_LAYOUT(layout), draw_area, 0, 0);
-   
-  }else{
-   
-   if(zoom_factor == 1.0){ //check
-    if(page_width >= page_height){
-     width_offset = (allocation->width - da_width)/2;
-    }else{
-     #if GTK_CHECK_VERSION(3,12,3)
-      width_offset = (allocation->width - da_width)/2;
-     #else
-      width_offset = (allocation->width - da_width)/2-7;
-     #endif 
-    }
-   }else{
-    #if GTK_CHECK_VERSION(3,18,10)
-     width_offset = (allocation->width - da_width)/2;
-    #else
-     width_offset = (allocation->width - da_width)/2-7;
-    #endif 
-    
-   }
-   
-   GtkAllocation sw_alloc;
-   gtk_widget_get_allocation (scrolled_window, &sw_alloc);
- 
-   GtkAllocation win_alloc;
-   gtk_widget_get_allocation (win, &win_alloc);
-   
-   if(width_offset < 0)
-    width_offset = 2;
-   
-   if(dual_page_mode){ //dual-page mode
-   
-    int dp_width = (int)(zoom_factor*page_width); 
-     
-    if(page_width >= page_height){
-     
-     height_offset =  (allocation->height - da_height)/2;
-     
-     gtk_layout_move(GTK_LAYOUT(layout), draw_area, dp_width+1, height_offset);
-     gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, height_offset);
-     
-    }
-    else{
-     
-     gtk_layout_move(GTK_LAYOUT(layout), draw_area, dp_width+2, 0);
-     gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, 0);
-     
-    }
-    
-   }else{
-    if( !dual_page_mode ){
-     gtk_layout_move(GTK_LAYOUT(layout), draw_area, width_offset, 0);
-    }
-    else{ // dual-page mode
-     
-     int dp_width = (int)(zoom_factor*page_width); 
-     
-     if(page_width >= page_height){
-     
-      height_offset =  (allocation->height - da_height)/2;
-     
-      gtk_layout_move(GTK_LAYOUT(layout), draw_area, dp_width+1, height_offset);
-      gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, height_offset);
-     
-     }
-     else{
-     
-      gtk_layout_move(GTK_LAYOUT(layout), draw_area, dp_width+2, 0);
-      gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, 0);
-     
-     }
-     
-    }
-    
-   }
-   
-  }
-    
- } // end of if( allocation->height <= da_height )
  else{
   
-  gtk_widget_set_size_request (draw_area, (gint)((page_width*zoom_factor)+0.5), (gint)((page_height*zoom_factor)+0.5));
-  
-  GtkAllocation sw_alloc;
-  gtk_widget_get_allocation (scrolled_window, &sw_alloc);
- 
-  GtkAllocation win_alloc;
-  gtk_widget_get_allocation (win, &win_alloc);
-  
-  GdkScreen *screen = gdk_screen_get_default ();
-  int screen_width = gdk_screen_get_width(screen);
-  
-  height_offset =  (allocation->height - da_height)/2;
+  #if GTK_CHECK_VERSION(3,12,3)
+  width_offset = (allocation->width - da_width)/2;
+  #else
   width_offset = (allocation->width - da_width)/2-7;
+  #endif
   
-  if(height_offset < 0)
+  height_offset = (allocation->height - da_height)/2;
+  width_offset = (allocation->width - da_width)/2;
+  
+  if( height_offset < 0  ){
    height_offset = 0;
-   
-  if(width_offset < 0)
-   width_offset = 0;
+  }
   
-  if( dual_page_mode ){
+  if( width_offset < 0  ){
+   width_offset = 0;
+  }
+  
+  if( !dual_page_mode ){
+   gtk_layout_move(GTK_LAYOUT(layout), draw_area, width_offset, height_offset);
+  }
+  else{
    int dp_width = (int)(zoom_factor*page_width);
    
    gtk_layout_move(GTK_LAYOUT(layout), draw_area, dp_width+1, height_offset);
-   gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, height_offset);
-   
-  }else{
-   gtk_layout_move(GTK_LAYOUT(layout), draw_area, width_offset, height_offset);
-  }
-  
- } //this should be checked
-  
- //comment
- 
- struct list_head *tmp;
- 
- list_for_each(tmp, &NOTE_HEAD){ 
-  
-  struct note *tmp1;
-  tmp1= list_entry(tmp, struct note, list);
-  
-  if( zoom_factor > 1.0 ){
-     
-   if( allocation->height <= da_height ){
-    
-    if( allocation->width >= da_width ){
-     
-     //pdf's height >= window's height
-     //pdf's width <= windows' width 
-       
-     //event_box has higer height
-     
-     if( !dual_page_mode ){
-     
-      gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor)+width_offset,
-         (gint)(tmp1->y*zoom_factor));
-         
-      if(tmp1->page_num != current_page_num+1)
-       gtk_widget_hide(tmp1->comment);
-     }
-     else{ //dual-page mode
-      
-      if( page_width < page_height ){
-       
-       height_offset = (allocation->height - da_height)/2;
-       width_offset = (allocation->width - da_width)/2;
-       
-       if(height_offset < 0)
-        height_offset = 0;
-       
-       //left page
-       if(tmp1->page_num == current_page_num + 1){
-        gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor),
-         (gint)(tmp1->y*zoom_factor)+height_offset);
-       }
-       //left page
-       
-       int dp_width = (int)(zoom_factor*page_width);
-       
-       //right page
-       if( page_width >= page_height ){
-          
-          if( tmp1->page_num == current_page_num + 2 ){  
-           
-           gtk_layout_move(GTK_LAYOUT(layout),
-            tmp1->comment,
-            (gint)(tmp1->x*zoom_factor)+dp_width+1,
-            (gint)(tmp1->y*zoom_factor)+height_offset);
-         
-          }
-         }
-         else{
-         
-          if( tmp1->page_num == current_page_num + 2 ){
-         
-           gtk_layout_move(GTK_LAYOUT(layout),
-            tmp1->comment,
-            (gint)(tmp1->x*zoom_factor)+dp_width+2,
-            (gint)(tmp1->y*zoom_factor)+height_offset);
-         
-          }
-         
-         }
-         //right page
-       
-      }
-     
-     }
-         
-    }
-    else{
-       
-     //event_box has wider width and higer height
-     
-     gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor),
-         (gint)(tmp1->y*zoom_factor)); 
-      
-    }
-   } 
-   else{ //if( allocation->height < eb_alloc.height )
-    
-    if(!dual_page_mode){ 
-    
-     height_offset =  (allocation->height - da_height)/2;
-     
-     gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor)+width_offset,
-         (gint)(tmp1->y*zoom_factor)+height_offset);
-    }
-    else{ //dual-page mode
-    
-     if(height_offset < 0)
-      height_offset = 0;
-    
-     //left page
-     if(tmp1->page_num == current_page_num + 1){
-      gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor),
-         (gint)(tmp1->y*zoom_factor));
-     }
-     //left page
-     
-     int dp_width = (int)(zoom_factor*page_width);
-       
-       //right page
-       if( page_width >= page_height ){
-          
-        if( tmp1->page_num == current_page_num + 2 ){  
-           
-         gtk_layout_move(GTK_LAYOUT(layout),
-            tmp1->comment,
-            (gint)(tmp1->x*zoom_factor)+dp_width+1,
-            (gint)(tmp1->y*zoom_factor));
-         
-        }
-       }
-       else{
-         
-        if( tmp1->page_num == current_page_num + 2 ){
-         
-         gtk_layout_move(GTK_LAYOUT(layout),
-            tmp1->comment,
-            (gint)(tmp1->x*zoom_factor)+dp_width+2,
-            (gint)(tmp1->y*zoom_factor));
-         
-        }
-         
-       }
-       //right page
-    }
-         
-   }
-     
-  }
-  else if( zoom_factor == 1.0 ){
-   
-   if( allocation->height > da_height ){
-    
-    height_offset =  (allocation->height - da_height)/2;
-     
-    gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor)+width_offset,
-         (gint)(tmp1->y*zoom_factor)+height_offset);
-     
-   }
-   else{
-    
-    gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor)+width_offset,
-         (gint)(tmp1->y*zoom_factor));
-   }
-    
-  }
-  else{ //zoom_factor < 1.0
-   
-   height_offset =  (allocation->height - da_height)/2;
-    
-   gtk_layout_move(GTK_LAYOUT(layout),
-         tmp1->comment,
-         (gint)(tmp1->x*zoom_factor)+width_offset,
-         (gint)(tmp1->y*zoom_factor)+height_offset);
-    
+   gtk_layout_move(GTK_LAYOUT(layout), ldraw_area, 0, height_offset);
   }
   
  }
+ 
+ if( current_nc ) 
+  display_comment(&current_nc->CM_HEAD);
+ 
+ if( dual_page_mode ){
   
- //comment
-   
+  if( rcurrent_nc )
+   display_comment(&rcurrent_nc->CM_HEAD);
+ }
+ 
 }
 
 static void
@@ -2039,19 +1531,20 @@ size_allocate_cb( GtkWidget *win, GtkAllocation *allocation, gpointer data){
   //window gets smaller
   //zoom out
   
-  if(allocation->width >= (gint)(page_width*(zoom_factor-1.0)) && allocation->width <= (gint)(page_width*(zoom_factor)) )
-   zoom_out();
+  if(allocation->width >= (gint)(page_width*(zoom_factor-1.0)) && allocation->width <= (gint)(page_width*(zoom_factor)) ){
+   zoom(ZOOM_OUT);
+  }
   
   int z_count = pre_sw_width/allocation->width;
   
   if( z_count > 1 ){
    while(z_count>0){
-    zoom_out();
+    zoom(ZOOM_OUT);
     z_count--;
    }
   }
   
-  size_decrease_cb(allocation);
+  size_adjust_cb(allocation);
   
   pre_sw_width = allocation->width + 1;
   g_signal_emit_by_name(G_OBJECT(scrolled_window), "size-allocate", allocation, data);
@@ -2067,13 +1560,15 @@ size_allocate_cb( GtkWidget *win, GtkAllocation *allocation, gpointer data){
   GdkScreen *screen = gdk_screen_get_default ();
   int screen_width = gdk_screen_get_width(screen);
   
-  if(screen_width == w_alloc.width+2)
-   zoom_width();
+  if(screen_width == w_alloc.width+2){
+   zoom(ZOOM_WIDTH);
+  }
   
-  if(allocation->width >= (gint)(page_width*(zoom_factor+1.0)) && allocation->width <= (gint)(page_width*(zoom_factor+2.0)) )
-   zoom_in();
+  if(allocation->width >= (gint)(page_width*(zoom_factor+1.0)) && allocation->width <= (gint)(page_width*(zoom_factor+2.0)) ){
+   zoom(ZOOM_IN);
+  }
   
-  size_increase_cb(allocation);
+  size_adjust_cb(allocation);
   
   pre_sw_width = allocation->width + 1;
   g_signal_emit_by_name(G_OBJECT(scrolled_window), "size-allocate", allocation, data);
@@ -2090,7 +1585,7 @@ size_allocate_cb( GtkWidget *win, GtkAllocation *allocation, gpointer data){
  
   //1, zoom in
   
-  size_increase_cb(allocation);
+  size_adjust_cb(allocation);
   
   pre_da_width = da_width;
   g_signal_emit_by_name(G_OBJECT(scrolled_window), "size-allocate", allocation, data);
@@ -2099,7 +1594,7 @@ size_allocate_cb( GtkWidget *win, GtkAllocation *allocation, gpointer data){
  else if( da_width < pre_da_width){ 
   //2, zoom out
   
-  size_decrease_cb(allocation);
+  size_adjust_cb(allocation);
   
   pre_da_width = da_width;
   g_signal_emit_by_name(G_OBJECT(scrolled_window), "size-allocate", allocation, data);
@@ -2138,7 +1633,7 @@ on_findtext_key_release(GtkWidget *findtext, GdkEventKey *event, gpointer user_d
    GdkScreen *screen = gdk_screen_get_default ();
 
    if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) ){
-    zoom_height();
+    zoom(ZOOM_HEIGHT);
    }
    
    return;
@@ -2227,10 +1722,10 @@ erase_text_highlight_mode_cb(GtkWidget* widget, gpointer data) {
 void text_selection_mode_change(void){
 
  if( find_ptr ){
-   invert_search_region();
-   g_list_free(find_ptr_head);
-   find_ptr_head = NULL;
-   find_ptr = NULL;
+  invert_search_region();
+  g_list_free(find_ptr_head);
+  find_ptr_head = NULL;
+  find_ptr = NULL;
  }
 
  pre_mode = mode = TEXT_SELECTION;
@@ -2330,9 +1825,9 @@ da_scroll_cb(GtkWidget *widget, GdkEvent *event, gpointer data){
  if( event->scroll.state & GDK_CONTROL_MASK ){
    
   if( event->scroll.direction == GDK_SCROLL_UP ) {
-      zoom_in(); 
+   zoom(ZOOM_IN); 
   }else if ( event->scroll.direction == GDK_SCROLL_DOWN ) {
-       zoom_out();
+    zoom(ZOOM_OUT);
   }
   else if( event->scroll.direction == GDK_SCROLL_SMOOTH ){
    
@@ -2451,6 +1946,7 @@ da_scroll_cb(GtkWidget *widget, GdkEvent *event, gpointer data){
      gtk_scrolled_window_get_hadjustment (GTK_SCROLLED_WINDOW (scrolled_window));
 
     gdouble hposition = gtk_adjustment_get_value (hadj);
+    
     if ( hposition == ( gtk_adjustment_get_upper(hadj) - gtk_adjustment_get_page_size(hadj)) ){
      gint page_num = poppler_document_get_n_pages(doc);
                 
@@ -2465,6 +1961,11 @@ da_scroll_cb(GtkWidget *widget, GdkEvent *event, gpointer data){
       direction = GTK_SCROLL_STEP_RIGHT;  
      }          
     }
+    else{
+      
+      horizontal = TRUE;
+      direction = GTK_SCROLL_STEP_RIGHT;  
+    }  
     
    }
    
@@ -2531,15 +2032,6 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
   case GDK_KEY_Right:
   case GDK_KEY_KP_Right:
    
-   {//check
-   GtkAdjustment *hadj =
-      gtk_scrolled_window_get_hadjustment (GTK_SCROLLED_WINDOW (scrolled_window));
-     
-   gdouble hvalue = gtk_adjustment_get_value(hadj);
-   
-   }//check 
-   
-        
    if ( hposition == ( gtk_adjustment_get_upper(hadj) - gtk_adjustment_get_page_size(hadj)) ){
     
     gint page_num = poppler_document_get_n_pages(doc);
@@ -2672,8 +2164,9 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
      
      GdkScreen *screen = gdk_screen_get_default ();
          
-     if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) )
-      zoom_height();
+     if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) ){
+      zoom(ZOOM_HEIGHT);
+     }
          
      gtk_widget_grab_focus (findtext);
  
@@ -2754,7 +2247,7 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
        
     if (event->state & GDK_CONTROL_MASK){
      
-      zoom_in();
+      zoom(ZOOM_IN);
         
       if(pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT)
        mode = pre_mode;
@@ -2767,7 +2260,7 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
        
     if (event->state & GDK_CONTROL_MASK){
      
-      zoom_out();
+      zoom(ZOOM_OUT);
         
       if(pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT)
        mode = pre_mode;
@@ -2780,8 +2273,8 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
        
     if (event->state & GDK_CONTROL_MASK){
      
-     zoom_width();    
-    
+     zoom(ZOOM_WIDTH);
+     
     }
     
     direction = GTK_SCROLL_NONE;
@@ -3038,7 +2531,7 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
         
     if (event->state & GDK_CONTROL_MASK){
      
-     zoom_height();
+     zoom(ZOOM_HEIGHT);
         
     }else if(areas_ptr > areas){
    
@@ -3419,9 +2912,6 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
 
     }// end of if(areas_ptr <= areas+n_areas-1)
     
-    //direction = GTK_SCROLL_HORIZONTAL_ENDS;
-    //direction = GTK_SCROLL_PAGE_RIGHT;
-    
     direction = GTK_SCROLL_NONE;
     break;
    default:
@@ -3514,417 +3004,4 @@ textbuffer_changed_cb(GtkTextBuffer *buffer, gpointer user_data){
  
  gtk_widget_queue_draw (comment->comment);
  
-}
-
-void
-layout_press(GtkWidget *widget, GdkEventButton *event, gpointer data){
-  
-  if (event->button == 1){
-   
-   GList *list, *iter;
-         
-   list = gtk_container_get_children (GTK_CONTAINER (layout));
-   
-   for (iter = list; iter; iter = iter->next){
-    
-    GtkWidget *child = GTK_WIDGET (iter->data);
-    
-    if(child == draw_area)
-     continue;
-   
-    if(child == ldraw_area)
-     continue;
-           
-    if (gtk_widget_get_visible (child) && ! GTK_IS_CONTAINER(child) ){
-     
-     gtk_widget_get_allocation (child, &child_alloc);
-     
-     double obj_x, obj_y;
-     
-     if( width_offset >= (child_alloc.x + child_alloc.width) ){
-      obj_x = event->x;
-      obj_y = event->y;
-     }else if( (event->x + width_offset >= child_alloc.x) &&
-              (event->x + width_offset > (child_alloc.x + child_alloc.width) )){
-      obj_x = event->x;
-      obj_y = event->y;
-     }
-
-     if( (event->x + width_offset >= child_alloc.x) &&
-         (event->x + width_offset < (child_alloc.x +child_alloc.width) )){
-
-        obj_x = event->x+width_offset;
-        
-        GtkAllocation sw_alloc;
-        gtk_widget_get_allocation (scrolled_window, &sw_alloc);
-                 
-        if( sw_alloc.height <= da_height )
-         obj_y = event->y;
-        else
-         obj_y = event->y+height_offset;
-        
-     }
-     
-     if(lpage){ // it looks like it have no effect to this function
-      
-      GtkAllocation sw_alloc;
-      gtk_widget_get_allocation (scrolled_window, &sw_alloc);
-    
-      if( sw_alloc.height > da_height )
-       obj_y = obj_y+height_offset;
-      
-      int dp_width = (int)(zoom_factor*page_width);
-      
-      if( child_alloc.x+child_alloc.width > dp_width+1 ){
-       
-       if( child_alloc.x > dp_width+1)
-        obj_x = event->x + dp_width+1;
-       else{ //the comment is laid on between left and left page
-      
-        if(event->x > 500){ //get the left part
-         obj_x = event->x;
-        }else{ //get the right part
-         obj_x = event->x + dp_width+1;
-        }
-       }
-       
-       if( sw_alloc.height <= da_height )
-        obj_y = event->y;
-       else
-        obj_y = event->y+height_offset;
-        
-      }
-      
-     }
-     
-     if ( (obj_x >= child_alloc.x) &&
-          (obj_x < (child_alloc.x + child_alloc.width)) &&
-          (obj_y >= child_alloc.y) &&
-          (obj_y < (child_alloc.y + child_alloc.height)) ){
-             
-      comment = child;
-      
-      lstart_x = event->x;
-      lstart_y = event->y;
-      layout_move = 1;
-             
-      break;
-     }
-            
-    }
-   
-   }
-   g_list_free (list);
-    
-  }//end of if (event->button == 1
-  else if (event->button == 3){
-   
-   GtkWidget *label = get_layout_child(layout, event);
-
-   if(label == NULL){
-    return;
-   }
-   
-   struct note *comment;
-   
-   struct list_head *tmp;
-
-   list_for_each(tmp, &NOTE_HEAD){
-
-    struct note *tmp1;
-    tmp1= list_entry(tmp, struct note, list);
-   
-    if(label == tmp1->comment){
-     comment = tmp1;
-     break;
-    }
-   }
-   
-   GtkWidget *edit_win = 
-           gtk_dialog_new_with_buttons ("Edit",
-                                       NULL,
-                                       GTK_DIALOG_MODAL,
-                                       "_CANCEL",
-                                       GTK_RESPONSE_CANCEL,
-                                       "_OK",
-                                       GTK_RESPONSE_OK,
-                                       "Delete this comment",
-                                       GTK_RESPONSE_APPLY,
-                                       NULL);
-
-   GtkWidget *content_area = gtk_dialog_get_content_area (GTK_DIALOG (edit_win));
-      
-   GtkWidget *view_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-   gtk_container_add (GTK_CONTAINER (content_area), view_box);
-
-   GtkWidget *textview = gtk_text_view_new ();
-   GtkTextBuffer *buffer = gtk_text_buffer_new (NULL);
-         
-   const char *contents = comment->str;
-   size_t len = strlen (contents);
-   gtk_text_buffer_set_text (buffer, contents, len);
-   gtk_text_view_set_buffer (GTK_TEXT_VIEW (textview), buffer);
-         
-   g_signal_connect(G_OBJECT( buffer ), "changed",
-      G_CALLBACK(textbuffer_changed_cb), comment);
-   
-   gtk_box_pack_start(GTK_BOX(view_box), textview, TRUE, TRUE, 0);
-         
-   gtk_widget_show_all(edit_win);
-         
-   int result = gtk_dialog_run(GTK_DIALOG(edit_win));
-         
-   if( result == GTK_RESPONSE_OK ){
-    
-    GtkTextIter startIter;
-    GtkTextIter endIter;
-    gtk_text_buffer_get_start_iter(buffer, &startIter);
-    gtk_text_buffer_get_end_iter(buffer, &endIter);
-
-   }
-   else if( result == GTK_RESPONSE_APPLY ){
-    gtk_widget_hide(label);
-       
-    struct list_head *tmp, *q;
-
-    list_for_each_safe(tmp, q, &NOTE_HEAD){
-
-     struct note *tmp1;
-     tmp1= list_entry(tmp, struct note, list);
-         
-     if( tmp1->comment == label ){
-            
-      list_del(&tmp1->list);
-      free(tmp1->str);
-      gtk_widget_destroy(tmp1->comment);
-      free(tmp1);
-      break;
-     } 
-
-    } // end of list_for_each_safe(tmp, q, &NOTE_HEAD)
-   } // end of else if( result == GTK_RESPONSE_APPLY )
-
-   gtk_widget_destroy (edit_win);
-   
-  }// end of else if (event->button == 3)
-
-}
-
-gboolean
-layout_button_release_event (GtkWidget      *widget,
-                             GdkEventButton *event,
-                             gpointer        user_data){ 
-
- GtkAllocation sw_alloc;
- gtk_widget_get_allocation (scrolled_window, &sw_alloc);   
- 
- struct list_head *tmp;
-
- list_for_each(tmp, &NOTE_HEAD){
-
-  struct note *tmp1;
-  tmp1= list_entry(tmp, struct note, list);
-  if(tmp1->comment == comment){
-   
-   if(dual_page_mode){
-     
-     int dp_width = (int)(zoom_factor*page_width);
-     
-     if( child_alloc.x > dp_width + 1 || event->x > dp_width + 1){
-      
-      left_right = 1;
-     }else{
-      
-      left_right = 0;
-     }
-     
-     if(left_right == 1 && event->x < 0)
-      left_right = 0;
-     
-     if(left_right){ // right_page
-      
-      tmp1->page_num = current_page_num + 2;
-     }else{ // left page
-      
-      tmp1->page_num = current_page_num + 1;
-      
-     }
-    
-   }
-   
-   if( da_height >= sw_alloc.height )
-    tmp1->y = ((gint)(event->y - lstart_y) + child_alloc.y)/zoom_factor;
-   else
-    tmp1->y = ((gint)(event->y - lstart_y) + child_alloc.y)/zoom_factor - (gint)(height_offset/zoom_factor);
-    
-   if( da_width >= sw_alloc.width )
-    tmp1->x = ((gint)((event->x - lstart_x)) + child_alloc.x)/zoom_factor;
-   else{
-
-    if( dual_page_mode ){
-    
-     int dp_width = (int)(zoom_factor*page_width);
-    
-     if(left_right && event->x > dp_width+1){
-      
-      tmp1->x = ((gint)((event->x - lstart_x)) + child_alloc.x - (dp_width+1 ))/zoom_factor;
-     }
-     else if( left_right  ){ 
-     
-      tmp1->x = ((gint)((event->x - lstart_x)) + child_alloc.x - (dp_width+1 ))/zoom_factor;
-     
-     }
-     else{
-     
-      tmp1->x = ((gint)((event->x - lstart_x)) + child_alloc.x)/zoom_factor;
-     }
-    }else{
-     
-     tmp1->x = ((gint)((event->x - lstart_x)) + child_alloc.x)/zoom_factor - (gint)(width_offset/zoom_factor);
-    
-    }
-    
-   }
-    
-    if(dual_page_mode){
-     
-     if(tmp1->y < 0 || event->y > (gint)((page_height*zoom_factor)+0.5)){
-      
-      tmp1->x = 100;
-      tmp1->y = 100;
-      
-      gtk_layout_move(GTK_LAYOUT(layout), tmp1->comment, tmp1->x, tmp1->y);
-     }
-     
-    }
-    
-  }
-  
- }//end of list_for_each(tmp, &NOTE_HEAD
- 
- if (event->button == 1 && layout_move == 1){
-  comment = 0;
-  layout_move = 0;
-           
-  return TRUE; // swallow event 
- }
- 
- return FALSE;
-}
-
-gboolean
-layout_motion_notify_event (GtkWidget      *widget,
-                            GdkEventMotion *event,
-                            gpointer        user_data){
- 
- 
- if ( comment ){
-   
-  gint newx = (gint)((event->x - lstart_x)) + child_alloc.x;
-  gint newy = (gint)(event->y - lstart_y) + child_alloc.y;
-  
-  if (newx < 0)
-   newx = 0;
-  
-  if (newy < 0)
-   newy = 0;
-  
-  gtk_layout_move (GTK_LAYOUT (widget), comment, newx, newy);
-  gdk_window_invalidate_rect (gtk_layout_get_bin_window (GTK_LAYOUT (widget)), NULL, FALSE);
-                
-  return TRUE; /* swallow event */
- }
-        
- return FALSE;
-}
-
-GtkWidget * 
-get_layout_child(GtkWidget      *layout, 
-                 GdkEventButton *event){
-
- GList *list, *iter;
- list = gtk_container_get_children (GTK_CONTAINER (layout));
- 
- for (iter = list; iter; iter = iter->next){
-
-  GtkWidget *child = GTK_WIDGET (iter->data);
-  
-  if(child == draw_area)
-   continue;
-   
-  if(child == ldraw_area)
-   continue;
-  
-  if (gtk_widget_get_visible (child) && ! GTK_IS_CONTAINER(child) ){
-
-    gtk_widget_get_allocation (child, &child_alloc);
-    
-    double obj_x, obj_y;
-    if( width_offset >= (child_alloc.x + child_alloc.width) ){
-     obj_x = event->x;
-     obj_y = event->y;
-    }else if( (event->x + width_offset >= child_alloc.x) &&
-           (event->x + width_offset > (child_alloc.x + child_alloc.width) )){
-     obj_x = event->x;
-     obj_y = event->y;
-    }
-
-    if( (event->x + width_offset >= child_alloc.x) &&
-        (event->x + width_offset < (child_alloc.x + child_alloc.width) )){
-
-     obj_x = event->x+width_offset;
-                 
-     GtkAllocation sw_alloc;
-     gtk_widget_get_allocation (scrolled_window, &sw_alloc);
-                 
-     if( sw_alloc.height <= da_height )
-      obj_y = event->y;
-     else
-      obj_y = event->y+height_offset;
-     
-    }
-    
-    if( dual_page_mode ){
-     
-     GtkAllocation sw_alloc;
-     gtk_widget_get_allocation (scrolled_window, &sw_alloc);
-     
-     int dp_width = (int)(zoom_factor*page_width);
-     
-     if( child_alloc.x+child_alloc.width > dp_width+1 ){
-      
-      if( child_alloc.x > dp_width+1)
-       obj_x = event->x;
-      else{ //the comment is laid on between left and left page
-       
-       if(event->x > 500){ //get the left part
-        obj_x = event->x;
-       }else{ //get the right part
-        obj_x = event->x + dp_width+1;
-       }
-       
-       
-      }
-      
-      if( sw_alloc.height <= da_height )
-       obj_y = event->y;
-      else
-       obj_y = event->y; 
-     }
-     
-    }
-    
-    if ( (obj_x >= child_alloc.x) &&
-         (obj_x < (child_alloc.x + child_alloc.width)) &&
-         (obj_y >= child_alloc.y) &&
-         (obj_y < (child_alloc.y + child_alloc.height)) ){
-          
-          return child;
- 
-    }
-  }
- }
-
- return NULL;
-
 }

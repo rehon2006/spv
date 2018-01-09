@@ -34,8 +34,8 @@ void invertArea (gint x1, gint y1, gint x2, gint y2, int option);
 
 void invert_search_region(void);
 
-void save_highlight(GtkWidget *widget);
+void save_highlight(GtkWidget *widget, struct list_head *hr_HEAD);
 
-void erase_highlight(GtkWidget *widget);
+void erase_highlight(GtkWidget *widget, struct list_head *hr_HEAD);
 
 #endif /* HIGHLIGHT_H */

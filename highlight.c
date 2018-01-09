@@ -8,7 +8,7 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU General Public License for more details. 
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -26,7 +26,7 @@
 
 #include "highlight.h"
 
-void erase_highlight(GtkWidget *widget){
+void erase_highlight(GtkWidget *widget, struct list_head *hr_HEAD){
  
  int selection_region_num;
  
@@ -60,6 +60,14 @@ void erase_highlight(GtkWidget *widget){
   
    return;
   }
+  
+  if( !dual_page_mode ){
+   
+   if( !current_nc ){
+    return;
+   }
+   
+  }
    
   int a_x, a_y, a_width, a_height;
   int b_x, b_y, b_width, b_height;
@@ -74,27 +82,10 @@ void erase_highlight(GtkWidget *widget){
    struct list_head *tmp, *tmp_next;
    struct highlight_region *tmp1;
 
-   list_for_each_safe(tmp, tmp_next, &HR_HEAD){
+   list_for_each_safe(tmp, tmp_next, hr_HEAD){
      
     tmp1= list_entry(tmp, struct highlight_region, list);
     
-    if( !dual_page_mode ){
-     if( tmp1->page_num !=  current_page_num+1 )
-      continue;
-     
-    }else{ //dual page mode
-      
-      if( widget == draw_area ){
-       if( tmp1->page_num !=  current_page_num+2 )
-        continue;
-      }
-      else if( widget == ldraw_area ){
-       if( tmp1->page_num !=  current_page_num+1 )
-        continue;
-      }
-      
-    }
-     
     a_x = tmp1->x;
     a_y = tmp1->y;
     a_width = tmp1->width;
@@ -169,7 +160,7 @@ void erase_highlight(GtkWidget *widget){
          
         }
         
-        list_add(&(hg->list), &HR_HEAD);
+        list_add(&(hg->list), hr_HEAD);
         
        } // end of if( ( a_x + a_width ) > ( b_x + b_width ) && b_x < ( a_x + a_width ) 
        else if(( a_x + a_width ) <= ( b_x + b_width ) && b_x < ( a_x + a_width ) ){ 
@@ -270,7 +261,8 @@ void erase_highlight(GtkWidget *widget){
          }
          
         }
-        list_add(&(hg->list), &HR_HEAD);
+        
+        list_add(&(hg->list), hr_HEAD);
 
         tmp1->width = b_x - a_x;
        }
@@ -301,6 +293,8 @@ void erase_highlight(GtkWidget *widget){
     tmp_ihr++;
    } // end of while( tmp_ihr->x != -1 )
    
+   //redraw the page
+   
    if (selection_surface){
   
     cairo_surface_destroy (selection_surface);
@@ -314,9 +308,9 @@ void erase_highlight(GtkWidget *widget){
     if(surface)
      cairo_surface_destroy (surface);
      
-    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
-                                        (gint)((page_width*zoom_factor)+0.5), 
-                                        (gint)((page_height*zoom_factor)+0.5));
+    surface = cairo_image_surface_create( CAIRO_FORMAT_ARGB32, 
+                                          (gint)((page_width*zoom_factor)+0.5), 
+                                          (gint)((page_height*zoom_factor)+0.5));
     
     cr = cairo_create(surface);
     
@@ -337,9 +331,9 @@ void erase_highlight(GtkWidget *widget){
      if(surface)
       cairo_surface_destroy (surface);
       
-     surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
-                                          (gint)((page_width*zoom_factor)+0.5), 
-                                          (gint)((page_height*zoom_factor)+0.5));
+     surface = cairo_image_surface_create( CAIRO_FORMAT_ARGB32, 
+                                           (gint)((page_width*zoom_factor)+0.5), 
+                                           (gint)((page_height*zoom_factor)+0.5));
      
      cr = cairo_create(surface);
      
@@ -424,78 +418,29 @@ void erase_highlight(GtkWidget *widget){
    
    struct list_head *tmp;
    
-   list_for_each(tmp, &HR_HEAD){
+   list_for_each(tmp, hr_HEAD){
 
     struct highlight_region *tmp1;
     tmp1= list_entry(tmp, struct highlight_region, list);
+    
+    char *rgb = (char*)malloc(8);
+     
+    sprintf(rgb, "#%s", tmp1->color_name);
+    
+    gdk_rgba_parse(&color, rgb);
    
-    if( !dual_page_mode ){
-     if(tmp1->page_num ==  current_page_num +1 ){
+    cairo_set_source_rgb (cr, color.red, color.green, color.blue);
+    
+    free(rgb);
+    
+    cairo_rectangle (cr, tmp1->x,
+                         tmp1->y, 
+                         tmp1->width,
+                         tmp1->height);
       
-      char *rgb = (char*)malloc(8);
-     
-      sprintf(rgb, "#%s", tmp1->color_name);
+    cairo_fill (cr);
     
-      gdk_rgba_parse(&color, rgb);
-   
-      cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-    
-      free(rgb);
-      
-      cairo_rectangle (cr, (int)(tmp1->x),
-                           (int)(tmp1->y), 
-                           (int)(tmp1->width),
-                           (int)(tmp1->height));
-     
-      cairo_fill (cr);
-   
-     }
-    }
-    else{ // dual-page mode
-   
-     if(tmp1->page_num ==  current_page_num +2 && widget == draw_area ){
-      
-      char *rgb = (char*)malloc(8);
-     
-      sprintf(rgb, "#%s", tmp1->color_name);
-    
-      gdk_rgba_parse(&color, rgb);
-   
-      cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-    
-      free(rgb);
-       
-      cairo_rectangle (cr, (int)(tmp1->x),
-                           (int)(tmp1->y), 
-                           (int)(tmp1->width),
-                           (int)(tmp1->height));
-     
-      cairo_fill (cr);
-   
-     }
-     else if(tmp1->page_num ==  current_page_num +1 && widget == ldraw_area ){
-      
-      char *rgb = (char*)malloc(8);
-     
-      sprintf(rgb, "#%s", tmp1->color_name);
-    
-      gdk_rgba_parse(&color, rgb);
-   
-      cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-    
-      free(rgb);
-       
-      cairo_rectangle (cr, (int)(tmp1->x),
-                           (int)(tmp1->y), 
-                           (int)(tmp1->width),
-                           (int)(tmp1->height));
-     
-      cairo_fill (cr);
-   
-     }
-
-    }
-   }
+   }//list_for_each(tmp, hr_HEAD)
    
    gtk_widget_queue_draw (draw_area);
    
@@ -506,58 +451,60 @@ void erase_highlight(GtkWidget *widget){
  
 }
 
-void save_highlight(GtkWidget *widget){
+void save_highlight(GtkWidget *widget, struct list_head *hr_HEAD){
+ 
+ int dup = 0;
   
-  int dup = 0;
+ struct list_head TMP_HR;
+ INIT_LIST_HEAD(&TMP_HR);
+ 
+ cairo_rectangle_int_t *tmp_hr = hr;
   
-  struct list_head TMP_HR;
-  INIT_LIST_HEAD(&TMP_HR);
-  
-  if( !list_empty(&HR_HEAD) ){
+ while( tmp_hr->x != -1 ){
+  tmp_hr++;
+ }
+ 
+ if( !list_empty(hr_HEAD) ){
    
-   struct list_head *tmp, *q;
+  struct list_head *tmp, *q;
   
-   cairo_rectangle_int_t *tmp_hr = hr;
+  cairo_rectangle_int_t *tmp_hr = hr;
 
-   int hr_a2_x, hr_a2_width;
-   char hr_a2_color_name[7];
+  int hr_a2_x, hr_a2_width;
+  char hr_a2_color_name[7];
 
-   if(!hr){
-    return;
-   } 
+  if(!hr){
+   return;
+  } 
    
-   int a_x, a_y, a_width, a_height;
-   int b_x, b_y, b_width, b_height;
+  int a_x, a_y, a_width, a_height;
+  int b_x, b_y, b_width, b_height;
   
-   int dup_x, dup_y, dup_width, dup_height;
-   dup_x = dup_y = dup_width = dup_height = -1;
+  int dup_x, dup_y, dup_width, dup_height;
+  dup_x = dup_y = dup_width = dup_height = -1;
   
-   while( tmp_hr->x != -1 ){
+  while( tmp_hr->x != -1 ){
     
-    b_x = (int)(tmp_hr->x/zoom_factor+0.5);
-    b_y = (int)(tmp_hr->y/zoom_factor+0.5);
-    b_width = (int)(tmp_hr->width/zoom_factor+0.5);
-    b_height = (int)(tmp_hr->height/zoom_factor+0.5);
+   b_x = (int)(tmp_hr->x/zoom_factor+0.5);
+   b_y = (int)(tmp_hr->y/zoom_factor+0.5);
+   b_width = (int)(tmp_hr->width/zoom_factor+0.5);
+   b_height = (int)(tmp_hr->height/zoom_factor+0.5);
     
-    list_for_each_safe(tmp, q, &HR_HEAD){
+   list_for_each_safe(tmp, q, hr_HEAD){
 
-     struct highlight_region *tmp1;
-     tmp1= list_entry(tmp, struct highlight_region, list);
+    struct highlight_region *tmp1;
+    tmp1= list_entry(tmp, struct highlight_region, list);
      
-     if( tmp1->page_num !=  current_page_num+1 ){
-      continue;
-     }
+    a_x = tmp1->x;
+    a_y = tmp1->y;
+    a_width = tmp1->width;
+    a_height = tmp1->height;
      
-     a_x = tmp1->x;
-     a_y = tmp1->y;
-     a_width = tmp1->width;
-     a_height = tmp1->height;
-     
-     if( ( a_y == b_y ) && ( a_height == b_height )){
+    if( ( a_y == b_y ) && ( a_height == b_height )){
        
-       if( a_x == b_x  ){
+     if( a_x == b_x  ){
        
-        if( a_width == b_width ){ //a == b
+      if( a_width == b_width ){ //a == b
          
          //  ---------
          // |    a    |
@@ -588,6 +535,7 @@ void save_highlight(GtkWidget *widget){
          tmp1->width = a_x + a_width - b_x - b_width;
          
          dup = 0;
+         //hr_num++;
          
         }
         else{ //a is fully coverd by b
@@ -632,6 +580,7 @@ void save_highlight(GtkWidget *widget){
          strcpy(hr_a2_color_name, tmp1->color_name);
          
          dup = 2;
+         
         }
         else if(( a_x + a_width ) <= ( b_x + b_width ) && b_x < ( a_x + a_width ) ){ 
          
@@ -639,17 +588,23 @@ void save_highlight(GtkWidget *widget){
          //  --------------
          // |  a | b       |
          //  --------------
-        
+         
          tmp1->width = b_x - a_x; 
          
          dup = 0;
-        
+         
         }
         else{ 
          // there is a gap between a and b
          
+         // a_x     b_x
+         //  -----  ---------
+         // |  a |  |    b  |
+         //  -----  ---------
+         
          if(dup != 2){
           dup = 0;
+   
          }
         }
      
@@ -664,7 +619,7 @@ void save_highlight(GtkWidget *widget){
          //  ---------
          
          if(dup_x == -1){
-         
+          
           dup_x = b_x;
           dup_y = b_y;
           dup_width = b_width;
@@ -690,7 +645,7 @@ void save_highlight(GtkWidget *widget){
          else{
          
           if(  dup_x != b_x || dup_y != b_y  ){
-           
+          
            dup_x = b_x;
            dup_y = b_y;
            dup_width = b_width;
@@ -717,7 +672,7 @@ void save_highlight(GtkWidget *widget){
            
            if( dup_y == b_y ){
            //remove other highlight regions on the same line
-           
+            
             free(tmp1->color_name);
             
             list_del(&tmp1->list);
@@ -749,6 +704,8 @@ void save_highlight(GtkWidget *widget){
          // |  b |  |    a  |
          //  -----  --------
          
+         
+         
          if( a_x + a_width == b_x + b_width ){
           
           char *color_name;
@@ -767,7 +724,7 @@ void save_highlight(GtkWidget *widget){
           dup = 1;
          }
          else{
-          
+         
           if( dup != 2)
            dup = 0;
          }
@@ -781,7 +738,7 @@ void save_highlight(GtkWidget *widget){
        //used to remove multiple lines
        //add  condition b_width > a_width +1 for preventing removing highlight regions
        //which locates different lines but have same width as new highlight region 
-        
+       
        free(tmp1->color_name);
           
        list_del(&tmp1->list);
@@ -796,7 +753,7 @@ void save_highlight(GtkWidget *widget){
       } 
      }
     }// end of list_for_each(tmp, &highlight_region_head.list)
-
+    
     if(!dup){
      
      struct highlight_region *hg = (struct highlight_region *)malloc(sizeof(struct highlight_region));
@@ -843,14 +800,21 @@ void save_highlight(GtkWidget *widget){
       cr = cairo_create(lsurface);
      }
      
-     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-     
      if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+      cairo_set_source_rgb (cr, 1, 1 , 1);
       cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+      cairo_rectangle (cr, hg->x*zoom_factor,
+                           hg->y*zoom_factor, 
+                           hg->width*zoom_factor,
+                           hg->height*zoom_factor);
+      
+      cairo_fill (cr);
+      
      }
-     else{
-      cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
-     }
+     
+     cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+     
+     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
      
      cairo_rectangle (cr, hg->x*zoom_factor,
                           hg->y*zoom_factor, 
@@ -895,7 +859,8 @@ void save_highlight(GtkWidget *widget){
       }
       
      }
-     list_add(&(hg->list), &HR_HEAD);
+     
+     list_add(&(hg->list), hr_HEAD);
      
      cairo_t *cr;
      
@@ -906,14 +871,23 @@ void save_highlight(GtkWidget *widget){
       cr = cairo_create(lsurface);
      }
      
-     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-     
      if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+      
+      cairo_set_source_rgb (cr, 1, 1 , 1);
       cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+      
+      cairo_rectangle (cr, hg->x*zoom_factor,
+                           hg->y*zoom_factor, 
+                           hg->width*zoom_factor,
+                           hg->height*zoom_factor);
+      
+      cairo_fill (cr);
+      
      }
-     else{
-      cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
-     }
+     
+     cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+     
+     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
      
      cairo_rectangle (cr, hg->x*zoom_factor,
                           hg->y*zoom_factor, 
@@ -946,16 +920,25 @@ void save_highlight(GtkWidget *widget){
       
      }
      
-     list_add(&(hg_a2->list), &HR_HEAD);
-     
-     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
+     list_add(&(hg_a2->list), hr_HEAD);
      
      if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+      
+      cairo_set_source_rgb (cr, 1, 1 , 1);
       cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+      
+      cairo_rectangle (cr, hg->x*zoom_factor,
+                           hg->y*zoom_factor, 
+                           hg->width*zoom_factor,
+                           hg->height*zoom_factor);
+      
+      cairo_fill (cr);
+      
      }
-     else{
-      cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
-     }
+     
+     cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+     
+     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
      
      cairo_rectangle (cr, hg_a2->x*zoom_factor,
                           hg_a2->y*zoom_factor, 
@@ -973,7 +956,7 @@ void save_highlight(GtkWidget *widget){
 
   } // end of if( !list_empty(highlight_region_head) )
   else{
-
+   
    if( hr ){
     cairo_rectangle_int_t *tmp_hr = hr;
     
@@ -1009,8 +992,8 @@ void save_highlight(GtkWidget *widget){
       }
       
      }
-      
-     list_add(&(hg->list), &HR_HEAD);
+     
+     list_add(&(hg->list), hr_HEAD);
      
      cairo_t *cr;
      
@@ -1021,15 +1004,24 @@ void save_highlight(GtkWidget *widget){
       cr = cairo_create(lsurface);
      }
      
-     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-     
      if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+      
+      cairo_set_source_rgb (cr, 1, 1 , 1);
       cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
-     }
-     else{
-      cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+      
+      cairo_rectangle (cr, hg->x*zoom_factor,
+                           hg->y*zoom_factor, 
+                           hg->width*zoom_factor,
+                           hg->height*zoom_factor);
+      
+      cairo_fill (cr);
+      
      }
      
+     cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+     
+     cairo_set_source_rgb (cr, color.red, color.green, color.blue);
+    
      cairo_rectangle (cr, hg->x*zoom_factor,
                           hg->y*zoom_factor, 
                           hg->width*zoom_factor,
@@ -1076,14 +1068,14 @@ void save_highlight(GtkWidget *widget){
    hg->color_name = (char *)malloc(6+1);
    strcpy( hg->color_name ,tmp1->color_name );
    
-   list_add(&(hg->list), &HR_HEAD);
+   list_add(&(hg->list), hr_HEAD);
    
    free(tmp1->color_name);
    list_del(&tmp1->list);
    free(tmp1);
    
-  }
-  
+  }//end of list_for_each_safe(tmp, q, &TMP_HR
+
 }
 
 void invertArea (gint x1, gint y1, gint x2, gint y2, int option){

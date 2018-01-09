@@ -28,7 +28,10 @@ enum mode{
  TEXT_SEARCH_PREV,
  PAGE_CHANGE,
  ZOOM_IN,
- ZOOM_OUT
+ ZOOM_OUT,
+ ZOOM_WIDTH,
+ ZOOM_HEIGHT,
+ DUAL_PAGE
 };
 
 enum mode mode, pre_mode;

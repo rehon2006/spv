@@ -164,29 +164,7 @@ gboolean KEY_BUTTON_SEARCH; //true for keyboard search, false for button search
 GtkAccelGroup *accel_group;
 
 int sa_count;
-
-struct list_head NOTE_HEAD, HR_HEAD;
-
-void
-layout_press (GtkWidget      *widget,
-              GdkEventButton *event,
-              gpointer        user_data);
-
-gboolean
-layout_button_release_event (GtkWidget      *widget,
-                             GdkEventButton *event,
-                             gpointer        user_data);
-                                                        
-gboolean
-layout_motion_notify_event (GtkWidget      *widget,
-                            GdkEventMotion *event,
-                            gpointer        user_data);
-
-
-GtkWidget * 
-get_layout_child(GtkWidget      *layout, 
-                 GdkEventButton *event);
-                                
+                     
 void
 toggle_hide_toolbar(void);
 

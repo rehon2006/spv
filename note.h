@@ -30,6 +30,19 @@ struct note{
  struct list_head list;
 };
 
+struct note_cache{
+ struct list_head CM_HEAD;
+ struct list_head HR_HEAD;
+ int page_num;
+ struct note_cache *next;
+}*current_nc, *rcurrent_nc;//current note cache
+
+int comment_click;
+
+int note_num;
+
+struct note_cache *note_cache; //how about calling it nc_head?
+
 void save_note (void);
 
 void add_comment (void);
@@ -45,5 +58,7 @@ save_note_cb (GtkWidget* widget, gpointer data);
 
 void
 save_comment_cb (GtkWidget* widget, gpointer data);
+
+void display_comment(struct list_head *hr_HEAD);
 
 #endif /* NOTE_H */
