@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,7 +25,10 @@
 #include <string.h>
 
 #include "search.h"
-
+#include "page.h"
+#include "gui.h"
+#include "pdf.h"
+   
 void find_exit_cb( GtkWidget *widget, gpointer user_data ){
   
  KEY_BUTTON_SEARCH = TRUE;
@@ -53,10 +56,10 @@ void find_exit_cb( GtkWidget *widget, gpointer user_data ){
  pre_mode = mode;
  mode = TEXT_SELECTION;
  
- GdkScreen *screen = gdk_screen_get_default ();
-
- if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) ){
-  zoom(ZOOM_HEIGHT);
+ if( !dual_page_mode ){
+  if( screen_height > (int)(page_height*zoom_factor) ){
+   zoom(ZOOM_HEIGHT);
+  }
  }
  
 }

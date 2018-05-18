@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,17 +18,27 @@
 #define NOTE_H
 
 #include "list.h"
-#include "gui.h"
 
-#include "page.h"
+struct color_table{
+ GdkRGBA color;
+ guint rc;
+ struct color_table* next;
+}*COL_TAB;
+
+struct cm_property{
+ PangoFontDescription *font_desc;
+ struct color_table* font_color;
+ struct color_table* bg_color;
+};
 
 struct note{
  GtkWidget *comment;
  char *str;
  gint x,y;
  gint page_num;
+ struct cm_property* property;
  struct list_head list;
-};
+}*current_cm;
 
 struct note_cache{
  struct list_head CM_HEAD;
@@ -39,19 +49,32 @@ struct note_cache{
 
 int comment_click;
 
-int note_num;
+gboolean draw_cursor;
+gboolean invert_color;
 
-struct note_cache *note_cache; //how about calling it nc_head?
+PangoFontDescription *G_CM_FONT_DESC;
+PangoFontDescription *P_CM_FONT_DESC;
 
-void save_note (void);
+struct color_table *G_HR_COLOR, *P_HR_COLOR;
+struct color_table *G_CM_FONT_COLOR, *G_CM_BG_COLOR;
+struct color_table *P_CM_FONT_COLOR, *P_CM_BG_COLOR;
 
-void add_comment (void);
+struct note_cache *note_cache; //how about renaming it as nc_head?
 
-void save_comment(void);
+void 
+save_note (void);
 
-void init_note(void);
+void 
+add_comment (void);
 
-void add_comment_cb (GtkWidget* widget, gpointer data);
+void 
+save_comment(void);
+
+void 
+init_note(void);
+
+gboolean 
+add_comment_cb (GtkWidget* widget, gpointer data);
 
 void
 save_note_cb (GtkWidget* widget, gpointer data);
@@ -59,6 +82,9 @@ save_note_cb (GtkWidget* widget, gpointer data);
 void
 save_comment_cb (GtkWidget* widget, gpointer data);
 
-void display_comment(struct list_head *hr_HEAD);
+void 
+display_comment(struct list_head *hr_HEAD);
+
+struct color_table* add_ct_entry(char *ce);
 
 #endif /* NOTE_H */

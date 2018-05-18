@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+ 
 #include <stdio.h>
 #include <stdlib.h>
 #include <glib.h>
@@ -24,7 +24,7 @@
 #include <assert.h>
 #include <string.h>
 
-#if __linux__
+#ifdef __linux__
 #include <linux/limits.h>
 #elif __APPLE__
 #include <sys/param.h>
@@ -34,7 +34,10 @@
 #include "pdf.h"
 
 void get_newline( PopplerPage* page ){
-
+ 
+ if(!areas)
+  return;
+ 
  PopplerRectangle * areas_tmp, *nt_ptr;
  areas_tmp = areas;
  nt_ptr = areas_tmp++;
@@ -68,17 +71,16 @@ void get_newline( PopplerPage* page ){
  }
  
 }
-
+ 
 void init_pdf( char *path ){
- 
- draw_count = 0;
- 
+
  GError* err = NULL;
  
  dual_page_mode = FALSE;
  
  PDF_BACKGROUND_COLOR_CHANGED = FALSE;
- 
+
+ //#C7EDCCFF
  background_color[0] = 199/255.0;
  background_color[1] = 237/255.0;
  background_color[2] = 204/255.0;
@@ -120,23 +122,15 @@ void init_pdf( char *path ){
   
  strcpy(file_name, pch+1);
  
- page = poppler_document_get_page(doc, current_page_num);
- 
- if(!page) {
-  printf("Could not open first page of document\n");
-  g_object_unref(doc);
-  exit(3);
- }
- 
  areas = areas_ptr = NULL;
  
  selection_surface = NULL;
  
- gboolean success;
-    
- success = poppler_page_get_text_layout(page, &areas, &n_areas); 
- 
- if(success) areas_ptr = areas;
+ //gboolean success;
+ //   
+ //success = poppler_page_get_text_layout(page, &areas, &n_areas); 
+ //
+ //if(success) areas_ptr = areas;
  
  //get_newline(page);
  line_count = 0;
@@ -144,50 +138,12 @@ void init_pdf( char *path ){
  
  press_rl = 1;
  
- poppler_page_get_size(page, &page_width, &page_height); 
+ zoom_factor = 1.0;
  
- GdkScreen *screen = gdk_screen_get_default ();
+ surface = lsurface = NULL;
+ cr = NULL;
  
- if(page_height >= gdk_screen_get_height(screen))
-  zoom_factor = 0.5;
- else
-  zoom_factor = 1.0;
- 
- gint width, height;
- 
- width = (gint)((page_width*zoom_factor)+0.5);
- height = (gint)((page_height*zoom_factor)+0.5);
-
- surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
- 
- cr = cairo_create(surface);
- 
- lsurface = NULL;
- 
- cairo_save(cr);
- 
- cairo_scale(cr, zoom_factor, zoom_factor);
-
- poppler_page_render(page, cr); 
- 
- cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
- 
- if(PDF_BACKGROUND_COLOR_CHANGED)
-  cairo_set_source_rgb (cr, background_color[0], background_color[1], background_color[2]);
- else
-  cairo_set_source_rgb (cr, 1., 1., 1.);
-  
- cairo_paint (cr);
- 
- PopplerRectangle area = { 0, 0, 0, 0 };
- 
- poppler_page_get_size (page, &area.x2, &area.y2);
- da_selection_region = poppler_page_get_selected_region (page,
-                                                         1.0,
-                                                         POPPLER_SELECTION_GLYPH,
-                                                         &area);
- 
- lda_selection_region = NULL;
+ da_selection_region = lda_selection_region = NULL;
  
  //for text selection
  da_glyph_color.red = CLAMP ((guint) (1 * 65535), 0, 65535);

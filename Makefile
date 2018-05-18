@@ -3,12 +3,10 @@ SRC_DIR = .
 
 INCLUDEDIRS = \
 	-I$(ARCENGINEHOME)/include \
-	-I/usr/X11R6/include \
         $(shell pkg-config --cflags gtk+-3.0 poppler-glib pango)
 
 LIBDIRS = \
 	-L$(ARCENGINEHOME)/bin \
-	-L/usr/X11R6/lib
 
 LIBS = \
 	$(shell pkg-config --libs gtk+-3.0 poppler-glib pango)

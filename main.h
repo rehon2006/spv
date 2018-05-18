@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,11 +17,9 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include "list.h"
-
 enum mode{
  TEXT_SELECTION,
- TEXT_INPUT,
+ TEXT_INPUT, //unused mode
  TEXT_HIGHLIGHT,
  ERASE_TEXT_HIGHLIGHT,
  TEXT_SEARCH_NEXT,
@@ -30,10 +28,11 @@ enum mode{
  ZOOM_IN,
  ZOOM_OUT,
  ZOOM_WIDTH,
- ZOOM_HEIGHT,
- DUAL_PAGE
+ ZOOM_HEIGHT
 };
 
 enum mode mode, pre_mode;
+
+void save_pref(void);
 
 #endif /* MAIN_H */

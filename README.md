@@ -1,17 +1,24 @@
 Simple PDF Viewer
 =================
 
-SPV is a simple PDF viewer based on GTK3 and Poppler, and is available for Linux, Mac and Windows. Users can highlight text, remove text highlights and add comments on PDF files. These functionalities do not modify PDF files, and related information is saved in a note file.
+SPV is a simple PDF viewer based on GTK3 and Poppler, and is available for Linux, Mac and Windows. It supports text highlight, comments adding/removing, and so on. These functionalities do not modify PDF files, and related information is saved in a note file.
 
-SPV是一個使用GTK3以及Poppler編寫的簡單PDF閱讀器並且可以在Linux, Mac以及Windows下執行. 使用者可以在PDF檔案上標記文字, 移除文字標記以及新增註解. 上述功能並不會修改PDF檔案, 相關資訊會儲存在一個note檔案中.
+Features
+-----
+* Text highlight and comments adding/removing
+* Dual-page mode
+* Change color of highlight regions
+* Invert and change background color of all pages
+* Change font, font color and background color of comments
+* Zoom in, Zoom out, Zoom to height and Zoom to Width
 
-Requirements 所需函式庫
+Requirements
 -----
 
 GTK+ version 3.12.2 or higher ( http://www.gtk.org/ )  
 Poppler version 0.24.5 with glib bindings or higher ( http://poppler.freedesktop.org/ )  
 
-Test Platforms 測試平台
+Test Platforms
 -----
 * ### Ubuntu  
 * Ubuntu version : Ubuntu 14.04.5 LTS  
@@ -36,12 +43,12 @@ Test Platforms 測試平台
       pacman -S mingw-w64-i686-gtk3 mingw-w64-i686-poppler
 ```
 
-### Build
-
+Build
+-----
 ```
      make
 ```  
-Usage 用法
+Usage
 -----
 ```
      ./spv [file name]  
@@ -51,97 +58,74 @@ or
      ./spv
 ```
 
-Copy and paste text 文字複製以及貼上
+Copy and paste text
 -----------
 
 ### Ubuntu
 
-After selecting text, users can paste with middle mouse button or use Ctrl+c to copy selected text and paste with Ctrl+v.  
-
-在文字選取完後,利用滑鼠中鍵貼上文字, 或是利用Ctrl+c複製文字並以Ctrl+v貼上文字.
+After selecting text, users can paste it with middle mouse button or use Ctrl+c to copy selected text and paste it with Ctrl+v.  
 
 ### Windows
 
 Use right mouse button or Ctrl+v to paste after selecting text.  
 
-在文字選取完後,使用滑鼠右鍵或是Ctrl+v貼上文字.
-
 ### Mac  
 
 Use right mouse button or Command+v to paste after selecting text.  
 
-在文字選取完後,使用滑鼠右鍵或是Command+v貼上文字.
-
-Key Bindings 鍵盤熱鍵
+Key Bindings
 --------------------  
 
 Key  |   Action
 -----|---------
-Ctrl+q | Quit 結束程式
-Ctrl+s | Save note 儲存筆記
-Ctrl+n | Add a comment 新增註解
-Ctrl+f | Text search 文字搜尋
-/ | Search forward 向下搜尋
-? | Search backword 向上搜尋
-n | Repeat last search 重複上次搜尋
-N | Repeat last search, but in opposite direction of original search 重複上次搜尋, 但是以相反方向搜尋
-Ctrl+ | Zoom in 1x 放大一倍
-Ctrl- | Zoom out 1x 縮小一倍
-Ctrl+w | Zoom to width 依視窗寬度縮放
-Ctrl+h | Zoom to height 依視窗高度縮放
-Ctrl+z | Switch mode (text selection mode [S], text highlight mode [H] and erase text highlight mode [E]) 模式切換(文字選取模式[S], 文字標記模式[H]以及移除文字標記模式[E] )
-Ctrl+d | Enter/Leave dual-page mode 進入或離開雙頁模式
-F11 | Enter/Leave full-screen mode 進入或離開全螢幕模式
-Shift+c | Change highlight color 改變文字標記顏色
-Shift+b | Change background color 改變背景顏色
-Ctrl+c | Copy selected text 複製選取文字
-Ctrl+v | Show/Hide toolbar 顯示/隱藏工具列
-Ctrl+x | Invert colors 反相顏色
-Ctrl+mouse Scroll up | Zoom in 1x 放大一倍
-Ctrl+mouse Scroll down | Zoom out 1x 縮小一倍
-number+P | Go to page [number] (e.g. 11P, go to page 11) 前往指定頁數的頁面(如11P就是前往第11頁)
-Right-arrow key | Go to next page 前往下一頁
-Left-arrow key | Go to previous page 前往上一頁
-ESC | Terminate text search, go to text selection mode or leave full-screen mode 結束文字搜尋或是切換至文字選取模式或是離開全螢幕模式
+Ctrl+q | Quit 
+Ctrl+s | Save note file 
+Ctrl+n | Add a comment 
+Ctrl+f | Text search 
+/ | Search forward 
+? | Search backward 
+n | Repeat last search 
+N | Repeat last search, but in opposite direction of original search 
+Ctrl+ | Zoom in 1x
+Ctrl- | Zoom out 1x 
+Ctrl+w | Zoom to width 
+Ctrl+h | Zoom to height 
+Ctrl+z | Switch mode (text selection mode [S], text highlight mode [H] and erase text highlight mode [E]) 
+Ctrl+d | Enter/Leave dual-page mode 
+F11 | Enter/Leave full-screen mode (Only for Linux and Windows) 
+Shift+c | Change color of highlight regions
+Shift+b | Change background color of all pages
+Ctrl+c | Copy selected text 
+Ctrl+v | Show/Hide toolbar 
+Ctrl+x | Invert background color of all pages
+Ctrl + Mouse Scroll Up | Zoom in 1x 
+Ctrl + Mouse Scroll Down | Zoom out 1x 
+number+P | Go to page [number] (e.g. 11P, go to page 11) 
+Right-arrow key | Go to next page 
+Left-arrow key | Go to previous page 
+ESC | Terminate text search, go to text selection mode or leave full-screen mode 
 
-
-Touchpad Gesture 觸控板手勢
+Touchpad Gesture 
 --------------
 
-### Swipe 滑動
+### Swipe 
 
 Swipe left or right with two fingers to go to previous or next page (Note: horizontal scrolling support is necessary).  
 
-用兩指左右滑動以前往上一頁或是下一頁. 觸控板必須支援水平滾動.
+### Pinch Zoom 
 
-### Pinch Zoom 放大或縮小
+To zoom in or out page, spread or pinch two fingers. This feature is only available in Windows and touchpad with multi-touch support is necessary.  
 
-To zoom in or out, spread or pinch two fingers. This feature is only available in Windows and touchpad with multi-touch support is necessary.  
-
-展開或是捏合兩指就可以放大或縮小頁面. 此功能目前只適用於Windows並且觸控板必須支援多點觸控.
-
-Note & Comment 筆記與註解
+Note file & Comment 
 ------------
 
-The note file is saved as [PDF filename].note (e.g., test.pdf.note).  
+A note file will be created after closing SPV or pressing Ctrl+s. The note file contains not only information about comments and highlight regions, but also information like last visited page, setting of inverting color and dual-page mode, comment property for this PDF file, and so on.
 
-note檔案會被存為[PDF檔名].note (例如 test.pdf.note).
+If you want to manipulate a comment, just click the right mouse button on a comment. A dialog will show up and you can edit the content of this comment, delete it or change the property which includes font, font color and background color.
 
-Press the left mouse button on comment to drag and drop it if you want to move it.  
+SPV also allows user to save comments as a comment file, which is a plain text file containing only string part of all comments. 
 
-如果你想移動註解, 利用滑鼠左鍵進行註解拖放.
-
-Click the right mouse button on a comment if you want to edit or delete it. A dialog will show up and you can edit or delete it.  
-
-如果你想編輯或移除註解, 在註解上按滑鼠右鍵. 接著會有一個視窗出現, 便可以編輯或移除註解.
-
-You can also save the content of all comments as [PDF filename].comment (e.g., test.pdf.comment).  
-
-使用者可以將所有註解資訊存到[PDF檔名].comment (例如 test.pdf.comment).
-
-Change Background Color 改變背景顏色
+Changing Background Color For All Pages
 ------------
 
-Users can select background color and the default color is #C7EDCC.
-
-使用者可以選擇背景顏色, 預設的顏色是#C7EDCC.
+There are three ways to change background color for all pages: invert background color, use default color #C7EDCC or select a new one.

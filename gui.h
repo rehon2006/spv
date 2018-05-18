@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,23 +18,14 @@
 #define GUI_H
 
 #include "list.h"
-#include "pdf.h"
 #include "main.h"
-#include "zoom.h"
-#include "highlight.h"
-#include "note.h"
-#include "search.h"
-#include "page.h"
 
 GtkWidget* win;
 GtkWidget *scrolled_window;
 
-GdkRGBA color;
-
 GtkWidget *toolbar;
 
 GtkToolItem *highlight_color;
-GdkPixbuf *hc_pixbuf;
 
 gboolean TOOL_BAR_VISIBLE;
 
@@ -47,36 +38,41 @@ GtkWidget *ldraw_area;
 
 gint da_width, da_height;
 
-GtkWidget *comment;
+//for showing cursor when editing a comment
+gint cursor_pos, pre_cursor_pos;
+gint bindex;
+GtkTextIter cur_cursor, pre_cursor;
+gint pre_str_pos, str_pos;
+//for showing cursor when editing a comment
 
 GtkClipboard *clipboard;
 
 GdkCursorType da_cursor;
 
-int layout_move;
-
 gchar* page_change_str;
 
 guint pre_keyval;
 
+guint screen_height, screen_width;
+
 gboolean cursor_enable;
-
-int inverted;
-
-GtkAllocation child_alloc;
 
 double start_x, start_y;
 double stop_x, stop_y;
 
-gint pre_sw_width;
-
+gint pre_sw_width, pre_sw_height;
 gint pre_da_width;
 
 GString *selected_text;
 
 int width_offset, height_offset;
+int awidth_offset, aheight_offset;
+
+GtkAllocation daa, ldaa;
 
 double lstart_x, lstart_y;
+
+gboolean full_screen;
 
 int left_right;// 0 for left page, 1 for right page
 
@@ -104,6 +100,7 @@ GtkWidget *quitMi;
 GtkWidget *editMi;
 GtkWidget *copyMi;
 GtkWidget *findMi;
+GtkWidget *prefMi;
 
 GtkWidget *viewMi;
    
@@ -127,7 +124,7 @@ GtkWidget *prepageMi;
 
 GtkWidget *modeMi;
     
-GtkWidget *normalMi;
+GtkWidget *text_selectionMi;
 GtkWidget *text_highlightMi;
 GtkWidget *erase_text_highlightMi;
 
@@ -138,7 +135,6 @@ GtkWidget *save_noteMi;
 GtkWidget *save_commentMi;
 
 GtkWidget *hc_button;
-GdkPixbuf *hc_pixbuf;
 GtkWidget *hc_button_Image;
 
 GtkWidget *zoom_in_button;
@@ -178,6 +174,9 @@ static gboolean
 da_scroll_cb(GtkWidget *widget, GdkEvent *event, gpointer data);
 
 gboolean
+draw_area_draw( GtkWidget *widget, cairo_t *cr, gpointer data );
+
+gboolean
 touchpad_cb(GtkWidget *widget, GdkEvent *event, gpointer data);
 
 static void
@@ -192,13 +191,17 @@ erase_text_highlight_mode_cb(GtkWidget* widget, gpointer data);
 void
 on_findtext_key_release(GtkWidget *findtext, GdkEventKey *event, gpointer user_data);
 
-gboolean time_handler(GtkWidget *widget);
+gboolean 
+time_handler(GtkWidget *widget);
 
 static void
 size_allocate_cb( GtkWidget *win, GtkAllocation *allocation, gpointer data);
 
 void
 textbuffer_changed_cb(GtkTextBuffer *textbuffer, gpointer user_data);
+
+gboolean
+cursor_position_changed_cb(GtkTextBuffer *textbuffer);
 
 void
 text_highlight_mode_change(void);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,24 +18,27 @@
 #define PAGE_H
 
 #include "main.h"
-#include "gui.h"
-#include "pdf.h"
-
 #include "list.h"
 
 struct note_cache;
 
-void page_change1(void);
-void page_change(void);
+void 
+page_change(void);
 
-void prev_page(void);
-void prev_page_cb(GtkWidget* widget, gpointer data);
+void 
+prev_page(void);
+void 
+prev_page_cb(GtkWidget* widget, gpointer data);
 
-void next_page(void);
-void next_page_cb(GtkWidget* widget, gpointer data);
+void 
+next_page(void);
+void 
+next_page_cb(GtkWidget* widget, gpointer data);
 
-void dual_page_cb(void);
+void 
+dual_page_cb(void);
 
-void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region, GtkWidget *draw_area, struct note_cache *current_nc);
+void 
+page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region, GtkWidget *draw_area, struct note_cache *current_nc);
 
 #endif /* PAGE_H */

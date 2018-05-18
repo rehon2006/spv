@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+ 
 #include <stdio.h>
 #include <stdlib.h>
 #include <glib.h>
@@ -24,11 +24,606 @@
 #include <assert.h>
 #include <string.h>
 
+#include <unistd.h>
+ 
 #include <pango/pangocairo.h>
 
 #include "list.h"
 #include "gui.h"
+#include "note.h"
+#include "highlight.h"
+#include "search.h"
+#include "zoom.h"
+#include "page.h"
+#include "pdf.h"
+#include "main.h"
 
+static void g_cm_bg_color_set_cb(GtkWidget *widget, gpointer user_data){
+ 
+ GtkWidget *colorseldlg = gtk_color_chooser_dialog_new ("Select Color for Comment's Background", NULL);
+ 
+ gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(colorseldlg), TRUE);
+ 
+ gint response = gtk_dialog_run (GTK_DIALOG (colorseldlg));
+ 
+ if(response == GTK_RESPONSE_OK){
+  
+  GtkWidget *image = gtk_button_get_image (GTK_BUTTON(widget));
+  
+  if( G_CM_BG_COLOR == P_CM_BG_COLOR ){
+   
+   gtk_color_chooser_get_rgba (GTK_COLOR_CHOOSER (colorseldlg), &G_CM_BG_COLOR->color);
+   P_CM_BG_COLOR = G_CM_BG_COLOR;
+   
+  }
+  else{
+   gtk_color_chooser_get_rgba (GTK_COLOR_CHOOSER (colorseldlg), &G_CM_BG_COLOR->color);
+  }
+  
+  cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 20, 10);
+ 
+  cairo_t *cr = cairo_create(surface);
+  
+  cairo_set_source_rgba (cr, G_CM_BG_COLOR->color.red, 
+                             G_CM_BG_COLOR->color.green, 
+                             G_CM_BG_COLOR->color.blue, 
+                             G_CM_BG_COLOR->color.alpha);
+  
+  cairo_paint(cr);
+   
+  gtk_image_set_from_surface (GTK_IMAGE(image), surface);
+   
+  if(surface)
+   cairo_surface_destroy (surface);
+  
+  if(cr)
+   cairo_destroy (cr);
+  
+ }
+ 
+ gtk_widget_destroy (colorseldlg);
+ 
+}
+
+static void p_cm_bg_color_set_cb(GtkWidget *widget, gpointer user_data){
+ 
+ GtkWidget *colorseldlg = gtk_color_chooser_dialog_new ("Select Color for Comment's Background", NULL);
+ 
+ gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(colorseldlg), TRUE);
+ 
+ gint response = gtk_dialog_run (GTK_DIALOG (colorseldlg));
+ 
+ if(response == GTK_RESPONSE_OK){
+  
+  GtkWidget *image = gtk_button_get_image (GTK_BUTTON(widget));
+  
+  GdkRGBA color;
+  
+  gtk_color_chooser_get_rgba (GTK_COLOR_CHOOSER (colorseldlg), &color);
+  
+  if( gdk_rgba_equal(&color,&P_CM_FONT_COLOR->color ) ){
+   gtk_widget_destroy (colorseldlg);
+   return;
+  }
+  else if( gdk_rgba_equal(&color,&P_CM_BG_COLOR->color ) ){
+   gtk_widget_destroy (colorseldlg);
+   return;
+  }
+  else if( gdk_rgba_equal(&color,&P_HR_COLOR->color ) ){
+   gtk_widget_destroy (colorseldlg);
+   return;
+  }
+
+  struct color_table *ct_tmp;
+  
+  if( G_HR_COLOR == P_HR_COLOR ){
+   
+   if( G_CM_FONT_COLOR == P_CM_FONT_COLOR ){
+    ct_tmp = G_CM_BG_COLOR;
+   }
+   else{
+    ct_tmp = P_CM_FONT_COLOR;
+   }
+   
+  }
+  else{
+   
+   if( G_CM_FONT_COLOR == P_CM_FONT_COLOR ){
+    ct_tmp = P_HR_COLOR;
+   }
+   else{
+    ct_tmp = P_CM_FONT_COLOR;
+   }
+   
+  }
+  
+  if( !ct_tmp->next ){
+   
+   ct_tmp->next =  (struct color_table *)malloc(sizeof(struct color_table));
+   ct_tmp->next->rc = 1;
+   ct_tmp->next->color = color;
+   ct_tmp->next->next = NULL;
+  }
+  else{
+  
+   struct color_table *tmp = ct_tmp->next;
+   
+   ct_tmp->next =  (struct color_table *)malloc(sizeof(struct color_table));
+   ct_tmp->next->rc = 1;
+   ct_tmp->next->color = color;
+   ct_tmp->next->next = tmp->next;
+   
+  }
+  
+  P_CM_BG_COLOR = ct_tmp->next;
+   
+  cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 20, 10);
+ 
+  cairo_t *cr = cairo_create(surface);
+  
+  cairo_set_source_rgba (cr, P_CM_BG_COLOR->color.red, 
+                             P_CM_BG_COLOR->color.green, 
+                             P_CM_BG_COLOR->color.blue, 
+                             P_CM_BG_COLOR->color.alpha);
+  
+  cairo_paint(cr);
+   
+  gtk_image_set_from_surface (GTK_IMAGE(image), surface);
+   
+  if(surface)
+   cairo_surface_destroy (surface);
+  
+  if(cr)
+   cairo_destroy (cr);
+  
+ }
+ 
+ gtk_widget_destroy (colorseldlg);
+ 
+}
+
+static void g_cm_font_color_set_cb(GtkWidget *widget, gpointer user_data){
+ 
+ GtkWidget *colorseldlg;
+ 
+ colorseldlg = gtk_color_chooser_dialog_new ("Select Font Color for Comment", NULL);
+ 
+ gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(colorseldlg), TRUE);
+ 
+ gint response = gtk_dialog_run (GTK_DIALOG (colorseldlg));
+ 
+ if(response == GTK_RESPONSE_OK){
+  
+  GtkWidget *image = gtk_button_get_image (GTK_BUTTON(widget));
+  
+  gtk_color_chooser_get_rgba (GTK_COLOR_CHOOSER (colorseldlg), &G_CM_FONT_COLOR->color);
+  
+  if( G_CM_FONT_COLOR == P_CM_FONT_COLOR ){
+   P_CM_FONT_COLOR = G_CM_FONT_COLOR;
+  }
+ 
+  cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 20, 10);
+ 
+  cairo_t *cr = cairo_create(surface);
+  
+  cairo_set_source_rgba (cr, G_CM_FONT_COLOR->color.red, 
+                             G_CM_FONT_COLOR->color.green, 
+                             G_CM_FONT_COLOR->color.blue, 
+                             G_CM_FONT_COLOR->color.alpha);
+   
+  cairo_paint(cr);
+   
+  gtk_image_set_from_surface (GTK_IMAGE(image), surface);
+  
+  if(surface)
+   cairo_surface_destroy (surface);
+  
+  if(cr)
+   cairo_destroy (cr);
+  
+ }
+ 
+ gtk_widget_destroy (colorseldlg);
+ 
+}
+
+static void p_cm_font_color_set_cb(GtkWidget *widget, gpointer user_data){
+ 
+ GtkWidget *colorseldlg;
+ 
+ colorseldlg = gtk_color_chooser_dialog_new ("Select Font Color for Comment", NULL);
+ 
+ gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(colorseldlg), TRUE);
+ 
+ gint response = gtk_dialog_run (GTK_DIALOG (colorseldlg));
+ 
+ if(response == GTK_RESPONSE_OK){
+  
+  GtkWidget *image = gtk_button_get_image (GTK_BUTTON(widget));
+  
+  GdkRGBA color;
+  
+  gtk_color_chooser_get_rgba (GTK_COLOR_CHOOSER (colorseldlg), &color);
+  
+  if( gdk_rgba_equal(&color,&P_CM_FONT_COLOR->color ) ){
+   gtk_widget_destroy (colorseldlg);
+   return;
+  }
+  else if( gdk_rgba_equal(&color,&P_CM_BG_COLOR->color ) ){
+   gtk_widget_destroy (colorseldlg);
+   return;
+  }
+  else if( gdk_rgba_equal(&color,&P_HR_COLOR->color ) ){
+   gtk_widget_destroy (colorseldlg);
+   return;
+  }
+  
+  struct color_table *ct_tmp;
+  
+  if( G_HR_COLOR == P_HR_COLOR ){
+   ct_tmp = G_CM_BG_COLOR;
+  }
+  else{
+   ct_tmp = P_HR_COLOR;
+  }
+  
+  if( !ct_tmp->next ){
+   
+   ct_tmp->next =  (struct color_table *)malloc(sizeof(struct color_table));
+   ct_tmp->next->rc = 1;
+   ct_tmp->next->color = color;
+   ct_tmp->next->next = NULL;
+   
+  }
+  else{
+  
+   struct color_table *tmp = ct_tmp->next;
+   
+   ct_tmp->next =  (struct color_table *)malloc(sizeof(struct color_table));
+   ct_tmp->next->rc = 1;
+   ct_tmp->next->color = color;
+   ct_tmp->next->next = tmp;
+   
+  }
+  
+  P_CM_FONT_COLOR = ct_tmp->next;
+  
+  cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 20, 10);
+ 
+  cairo_t *cr = cairo_create(surface);
+  
+  cairo_set_source_rgba (cr, P_CM_FONT_COLOR->color.red, 
+                             P_CM_FONT_COLOR->color.green, 
+                             P_CM_FONT_COLOR->color.blue, 
+                             P_CM_FONT_COLOR->color.alpha);
+   
+  cairo_paint(cr);
+   
+  gtk_image_set_from_surface (GTK_IMAGE(image), surface);
+  
+  if(surface)
+   cairo_surface_destroy (surface);
+  
+  if(cr)
+   cairo_destroy (cr);
+  
+ }
+ 
+ gtk_widget_destroy (colorseldlg);
+ 
+}
+
+static void g_cm_font_changed(GtkFontButton *font_button, gpointer user_data) {
+ 
+ if( pango_font_description_equal( G_CM_FONT_DESC, P_CM_FONT_DESC ) ){
+  
+  G_CM_FONT_DESC = pango_font_description_from_string (gtk_font_button_get_font_name(GTK_FONT_BUTTON(font_button)));
+  
+  P_CM_FONT_DESC = G_CM_FONT_DESC;
+  
+ }
+ else{
+  G_CM_FONT_DESC = pango_font_description_from_string (gtk_font_button_get_font_name(GTK_FONT_BUTTON(font_button)));
+ }
+ 
+}
+
+static void p_cm_font_changed(GtkFontButton *font_button, gpointer user_data) {
+ 
+ P_CM_FONT_DESC = pango_font_description_from_string (gtk_font_button_get_font_name(GTK_FONT_BUTTON(font_button)));
+ 
+ struct list_head *tmp;
+ struct note *tmp1;
+ 
+ if( current_nc ){
+  
+  list_for_each(tmp, &current_nc->CM_HEAD){
+
+   tmp1= list_entry(tmp, struct note, list);
+   
+   gtk_widget_queue_draw(tmp1->comment);
+   
+  }//list_for_each(tmp, &current_nc->CM_HEAD)
+  
+ }
+ 
+ if( rcurrent_nc ){
+  
+  list_for_each(tmp, &rcurrent_nc->CM_HEAD){
+
+   tmp1= list_entry(tmp, struct note, list);
+   
+   gtk_widget_queue_draw(tmp1->comment);
+   
+  }//list_for_each(tmp, &current_nc->CM_HEAD)
+  
+ }
+
+}
+
+static void pref_cb( GtkWidget *widget, gpointer user_data ){
+ 
+ GtkWidget *pref_win = 
+           gtk_dialog_new_with_buttons ("Preferences",
+                                        NULL,
+                                        GTK_DIALOG_MODAL,
+                                        "_CANCEL",
+                                        GTK_RESPONSE_CANCEL,
+                                        "_OK",
+                                        GTK_RESPONSE_OK,
+                                        NULL);
+ 
+ GtkWidget *content_area = gtk_dialog_get_content_area (GTK_DIALOG (pref_win));
+      
+ GtkWidget *pref_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+ gtk_container_add (GTK_CONTAINER (content_area), pref_box);
+ 
+ //Global Setting
+ 
+ GtkWidget *gframe;
+ gframe = gtk_frame_new("Global Setting");
+ gtk_container_set_border_width( GTK_CONTAINER(gframe), 5 );
+
+ //font family
+ 
+ GtkWidget *g_cm_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 3);
+ 
+ GtkWidget *g_cm_font_button = gtk_font_button_new_with_font(pango_font_description_to_string(G_CM_FONT_DESC));
+ 
+ GtkWidget *g_cm_font_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 3);
+
+ GtkWidget *g_cm_font_label = gtk_label_new("Font:");
+  
+ g_signal_connect(G_OBJECT(g_cm_font_button), "font_set",
+                    G_CALLBACK(g_cm_font_changed), NULL);
+
+ gtk_box_pack_start(GTK_BOX(g_cm_font_box), g_cm_font_label, TRUE, TRUE, 0);
+ gtk_box_pack_start(GTK_BOX(g_cm_font_box), g_cm_font_button, TRUE, TRUE, 0);
+ gtk_box_pack_start(GTK_BOX(g_cm_vbox), g_cm_font_box, TRUE, TRUE, 0);
+ 
+ //font color
+ 
+ GtkWidget *g_cm_font_color_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 3);
+   
+ GtkWidget *g_cm_font_color_label = gtk_label_new("Font Color:");
+
+ cairo_surface_t * surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 20, 10);
+ 
+ cairo_t *cr = cairo_create(surface);
+
+ cairo_set_source_rgba (cr, G_CM_FONT_COLOR->color.red, 
+                            G_CM_FONT_COLOR->color.green, 
+                            G_CM_FONT_COLOR->color.blue, 
+                            G_CM_FONT_COLOR->color.alpha);
+ 
+ cairo_paint(cr);
+   
+ GtkWidget *g_cm_font_color_button = gtk_button_new();
+ 
+ GtkWidget *g_cm_font_color_button_Image = gtk_image_new_from_surface(surface);
+ gtk_button_set_image(GTK_BUTTON(g_cm_font_color_button),g_cm_font_color_button_Image); 
+   
+ gtk_widget_set_can_focus(g_cm_font_color_button, FALSE);
+   
+ g_signal_connect(G_OBJECT(g_cm_font_color_button), "clicked",
+                  G_CALLBACK(g_cm_font_color_set_cb), NULL); 
+   
+ gtk_box_pack_start(GTK_BOX(g_cm_font_color_box), g_cm_font_color_label, TRUE, TRUE, 0);
+ gtk_box_pack_start(GTK_BOX(g_cm_font_color_box), g_cm_font_color_button, TRUE, TRUE, 0);
+ gtk_box_pack_start(GTK_BOX(g_cm_vbox), g_cm_font_color_box, TRUE, TRUE, 0);
+ 
+ //background color
+ 
+ GtkWidget *g_cm_bg_color_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 1);
+   
+ GtkWidget *g_cm_bg_color_label = gtk_label_new("Background Color:");
+
+ if(surface){
+  cairo_surface_destroy (surface);
+  surface = NULL;
+ }
+  
+ if(cr){
+  cairo_destroy (cr);
+  cr = NULL;
+ }
+   
+ surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 20, 10);
+ 
+ cr = cairo_create(surface);
+
+ cairo_set_source_rgba (cr, G_CM_BG_COLOR->color.red, 
+                            G_CM_BG_COLOR->color.green, 
+                            G_CM_BG_COLOR->color.blue, 
+                            G_CM_BG_COLOR->color.alpha);
+
+ cairo_paint(cr);
+   
+ GtkWidget *g_cm_bg_color_button = gtk_button_new();
+   
+ GtkWidget *g_cm_bg_color_button_Image = gtk_image_new_from_surface(surface);
+   
+ gtk_button_set_image(GTK_BUTTON(g_cm_bg_color_button),g_cm_bg_color_button_Image); 
+   
+ if(surface){
+  cairo_surface_destroy (surface);
+  surface = NULL;
+ }
+  
+ if(cr){
+  cairo_destroy (cr);
+  cr = NULL;
+ }
+  
+ gtk_widget_set_can_focus(g_cm_bg_color_button, FALSE);
+   
+ g_signal_connect(G_OBJECT(g_cm_bg_color_button), "clicked",
+                  G_CALLBACK(g_cm_bg_color_set_cb), NULL);
+   
+ gtk_box_pack_start(GTK_BOX(g_cm_bg_color_box), g_cm_bg_color_label, TRUE, TRUE, 0);
+ gtk_box_pack_start(GTK_BOX(g_cm_bg_color_box), g_cm_bg_color_button, TRUE, TRUE, 0);
+   
+ gtk_box_pack_start(GTK_BOX(g_cm_vbox), g_cm_bg_color_box, TRUE, TRUE, 0);
+ 
+ gtk_container_add( GTK_CONTAINER(gframe), g_cm_vbox );
+ 
+ //Global Setting
+ 
+ GtkWidget *pframe;
+ pframe = gtk_frame_new("Current PDF Setting");
+ 
+ //font family
+ 
+ GtkWidget *p_cm_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 3);
+ 
+ GtkWidget *p_cm_font_button = gtk_font_button_new_with_font(pango_font_description_to_string(P_CM_FONT_DESC));
+ 
+ GtkWidget *p_cm_font_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 3);
+
+ GtkWidget *p_cm_font_label = gtk_label_new("Font:");
+  
+ g_signal_connect(G_OBJECT(p_cm_font_button), "font_set",
+                    G_CALLBACK(p_cm_font_changed), NULL);
+
+ gtk_box_pack_start(GTK_BOX(p_cm_font_box), p_cm_font_label, TRUE, TRUE, 0);
+ gtk_box_pack_start(GTK_BOX(p_cm_font_box), p_cm_font_button, TRUE, TRUE, 0);
+   
+ gtk_box_pack_start(GTK_BOX(p_cm_vbox), p_cm_font_box, TRUE, TRUE, 0);
+ 
+ //font color
+ 
+ GtkWidget *p_cm_font_color_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 3);
+   
+ GtkWidget *p_cm_font_color_label = gtk_label_new("Font Color:");
+
+ if(surface){
+  cairo_surface_destroy (surface);
+  surface = NULL;
+ }
+  
+ if(cr){
+  cairo_destroy (cr);
+  cr = NULL;
+ }
+ 
+ surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 20, 10);
+ 
+ cr = cairo_create(surface);
+ 
+ cairo_set_source_rgba (cr, P_CM_FONT_COLOR->color.red, 
+                            P_CM_FONT_COLOR->color.green, 
+                            P_CM_FONT_COLOR->color.blue, 
+                            P_CM_FONT_COLOR->color.alpha);
+
+ cairo_paint(cr);
+   
+ GtkWidget *p_cm_font_color_button = gtk_button_new();
+ 
+ GtkWidget *p_cm_font_color_button_Image = gtk_image_new_from_surface(surface);
+ gtk_button_set_image(GTK_BUTTON(p_cm_font_color_button),p_cm_font_color_button_Image); 
+   
+ gtk_widget_set_can_focus(p_cm_font_color_button, FALSE);
+   
+ g_signal_connect(G_OBJECT(p_cm_font_color_button), "clicked",
+                  G_CALLBACK(p_cm_font_color_set_cb), NULL); 
+   
+ gtk_box_pack_start(GTK_BOX(p_cm_font_color_box), p_cm_font_color_label, TRUE, TRUE, 0);
+ gtk_box_pack_start(GTK_BOX(p_cm_font_color_box), p_cm_font_color_button, TRUE, TRUE, 0);
+   
+ gtk_box_pack_start(GTK_BOX(p_cm_vbox), p_cm_font_color_box, TRUE, TRUE, 0);
+ 
+ //background color
+ 
+ GtkWidget *p_cm_bg_color_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 1);
+   
+ GtkWidget *p_cm_bg_color_label = gtk_label_new("Background Color:");
+
+ if(surface){
+  cairo_surface_destroy (surface);
+  surface = NULL;
+ }
+  
+ if(cr){
+  cairo_destroy (cr);
+  cr = NULL;
+ }
+   
+ surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 20, 10);
+ 
+ cr = cairo_create(surface);
+
+ cairo_set_source_rgba (cr, P_CM_BG_COLOR->color.red, 
+                            P_CM_BG_COLOR->color.green, 
+                            P_CM_BG_COLOR->color.blue, 
+                            P_CM_BG_COLOR->color.alpha);
+
+ cairo_paint(cr);
+   
+ GtkWidget *p_cm_bg_color_button = gtk_button_new();
+   
+ GtkWidget *p_cm_bg_color_button_Image = gtk_image_new_from_surface(surface);
+   
+ gtk_button_set_image(GTK_BUTTON(p_cm_bg_color_button),p_cm_bg_color_button_Image); 
+   
+ if(surface){
+  cairo_surface_destroy (surface);
+  surface = NULL;
+ }
+  
+ if(cr){
+  cairo_destroy (cr);
+  cr = NULL;
+ }
+   
+ gtk_widget_set_can_focus(p_cm_bg_color_button, FALSE);
+   
+ g_signal_connect(G_OBJECT(p_cm_bg_color_button), "clicked",
+                  G_CALLBACK(p_cm_bg_color_set_cb), NULL);
+   
+ gtk_box_pack_start(GTK_BOX(p_cm_bg_color_box), p_cm_bg_color_label, TRUE, TRUE, 0);
+ gtk_box_pack_start(GTK_BOX(p_cm_bg_color_box), p_cm_bg_color_button, TRUE, TRUE, 0);
+   
+ gtk_box_pack_start(GTK_BOX(p_cm_vbox), p_cm_bg_color_box, TRUE, TRUE, 0);
+ 
+ gtk_container_add( GTK_CONTAINER(pframe), p_cm_vbox );
+ 
+ gtk_box_pack_start(GTK_BOX(pref_box), gframe, TRUE, TRUE, 0);
+ 
+ gtk_box_pack_start(GTK_BOX(pref_box), pframe, TRUE, TRUE, 0);
+ 
+ gtk_widget_show_all(pref_win);
+
+ int result = gtk_dialog_run(GTK_DIALOG(pref_win));
+ 
+ if( result == GTK_RESPONSE_CANCEL || result == GTK_RESPONSE_DELETE_EVENT ){
+  gtk_widget_destroy (pref_win);
+ }
+ else if( result == GTK_RESPONSE_OK ){
+  gtk_widget_destroy (pref_win);
+ }
+ 
+}
+    
 static void toggle_cursor_mode_cb( GtkWidget *widget, gpointer user_data ){
 
  if( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(cursor_modeMi) ) ){
@@ -42,102 +637,228 @@ static void toggle_cursor_mode_cb( GtkWidget *widget, gpointer user_data ){
 
 void toggle_dual_page_cb(GtkWidget *widget, gpointer user_data){
  
+ if(dual_page_mode)
+  dual_page_mode = FALSE;
+ else
+  dual_page_mode = TRUE;
+  
  dual_page_cb();
 
 }
 
 void full_screen_cb(void){
-
- if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(full_screenMi) ) ){
+ 
+ if ( full_screen ){
   
   GtkAllocation sw_alloc;
   gtk_widget_get_allocation (scrolled_window, &sw_alloc);
   
+  pre_sw_height = sw_alloc.height;
+  
   gtk_window_fullscreen (GTK_WINDOW (win));
   gtk_widget_hide (menubar);
   
-  gint width, height;
-   
-  gtk_layout_get_size(GTK_LAYOUT(layout), &width, &height);
-   
   GtkAllocation win_alloc;
   gtk_widget_get_allocation (win, &win_alloc);
   
-  if( win_alloc.height > da_height ){
-   zoom(ZOOM_HEIGHT);
+  pre_sw_height = sw_alloc.height;
+  
+  if(!dual_page_mode)
+   if( win_alloc.height > da_height ){
+    zoom(ZOOM_HEIGHT);
+   }
+  
+  full_screen = TRUE;
+  
+  if( dual_page_mode && dual_page_mode != 0 ){
+  
+   double awidth, aheight, bwidth, bheight;
+  
+   PopplerPage* apage = poppler_document_get_page(doc, current_page_num);
+ 
+   poppler_page_get_size(apage, &awidth, &aheight); 
+ 
+   apage = poppler_document_get_page(doc, current_page_num+1);
+  
+   poppler_page_get_size(apage, &bwidth, &bheight); 
+  
+   g_object_unref (G_OBJECT (apage));
+   apage = NULL;
+  
+   if( azoom_factor < 0 ){
+    ldaa.y = (screen_height  - 2 - aheight*(-azoom_factor) )/2;
+    daa.y = 0;
+   
+    gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, ldaa.y);
+   }
+   else if( azoom_factor > 0 ){
+    ldaa.y = 0;
+    daa.y = (screen_height  - 2 - bheight*(azoom_factor) )/2;
+    gtk_layout_move(GTK_LAYOUT(layout), draw_area, daa.x, daa.y);
+   
+   }
+   
   }
   
+  if(current_nc)
+   display_comment(&current_nc->CM_HEAD);
+  
+  if(dual_page_mode) 
+   if( rcurrent_nc )
+    display_comment(&rcurrent_nc->CM_HEAD);
+ 
  }
  else{ 
- 
+  
   gtk_window_unfullscreen (GTK_WINDOW (win));
   gtk_widget_show (menubar);
   
-  if( dual_page_mode && page_width >= page_height){
+  if( dual_page_mode ){
    
-   int dp_width = (int)(zoom_factor*page_width);
+   if( page_width >= page_height ){
+    
+    GtkAllocation da_alloc,lda_alloc;
+    gtk_widget_get_allocation (draw_area, &da_alloc);
+    gtk_widget_get_allocation (ldraw_area, &lda_alloc);
    
-   GtkAllocation win_alloc;
-   gtk_widget_get_allocation (win, &win_alloc);
-
-   GtkAllocation mb_alloc;
-   gtk_widget_get_allocation (menubar, &mb_alloc);
+    GtkAllocation win_alloc;
+    gtk_widget_get_allocation (win, &win_alloc);
    
-   GtkAllocation sw_alloc;
-   gtk_widget_get_allocation (scrolled_window, &sw_alloc);
+    GtkAllocation sw_alloc;
+    gtk_widget_get_allocation (scrolled_window, &sw_alloc);
    
-   height_offset = (sw_alloc.height - da_height -100)/2;
+    GtkAllocation mb_alloc;
+    gtk_widget_get_allocation (menubar, &mb_alloc);
    
-   gint width, height;
+    height_offset = (sw_alloc.height - da_height -100)/2;
+    
+    gint width, height;
+    
+    gtk_layout_get_size(GTK_LAYOUT(layout), &width, &height);
+    
+    if( azoom_factor == 0.0 ){
+     gtk_layout_move(GTK_LAYOUT(layout), draw_area,da_alloc.width, height_offset);
+     gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, height_offset);
+    }
+    else if( azoom_factor > 0 ){
+     gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, 0);
+    }
+    else{ 
+     gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, (sw_alloc.height - lda_alloc.height -100)/2);
+    }
+    
+   }
    
-   gtk_layout_get_size(GTK_LAYOUT(layout), &width, &height);
+   if( azoom_factor < 0 ){
    
-   gtk_layout_move(GTK_LAYOUT(layout), draw_area,dp_width+1, height_offset);
-   gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, height_offset);
+    GtkAllocation da_alloc,lda_alloc;
+    gtk_widget_get_allocation (draw_area, &da_alloc);
+    gtk_widget_get_allocation (ldraw_area, &lda_alloc);
+    
+    GtkAllocation sw_alloc;
+    gtk_widget_get_allocation (scrolled_window, &sw_alloc);
+    
+    gtk_layout_move(GTK_LAYOUT(layout), ldraw_area,0, (sw_alloc.height - lda_alloc.height -100)/2);
+    
+    ldaa.y = (screen_height  - 2 - 100 - lda_alloc.height )/2;
+    daa.y = 0;
+     
+   }
+   else if ( azoom_factor > 0 ){
+    
+    GtkAllocation da_alloc,lda_alloc;
+    gtk_widget_get_allocation (draw_area, &da_alloc);
+    gtk_widget_get_allocation (ldraw_area, &lda_alloc);
+    
+    GtkAllocation sw_alloc;
+    gtk_widget_get_allocation (scrolled_window, &sw_alloc);
+    
+    gtk_layout_move(GTK_LAYOUT(layout), draw_area,lda_alloc.width, (sw_alloc.height - da_alloc.height -100)/2);
+    
+    ldaa.y = 0;
+    daa.y = (screen_height - 100 - 2 - da_alloc.height )/2;
+    
+   }
+   
+   if( rcurrent_nc )
+    display_comment(&rcurrent_nc->CM_HEAD);
    
   }else if( !dual_page_mode ){
    zoom(ZOOM_WIDTH);
   }
   
+  if(current_nc)
+   display_comment(&current_nc->CM_HEAD);
+  
+  full_screen = FALSE;
+  
+  pre_sw_height = 0;
+  
  }
  
 }
 
-static void toggle_full_screen_cb(GtkWidget *widget, gpointer user_data){
- 
+static gboolean toggle_full_screen_cb(GtkWidget *widget, gpointer user_data){
+
  full_screen_cb();
+ 
+ return TRUE;
  
 }
 
 static void inverted_color_cb(void){
  
- if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+ if( mode == TEXT_SELECTION ){
+  
+  if( invert_color ){ 
+  
+   da_glyph_color.red = CLAMP ((guint) (0 * 65535), 0, 65535);
+   da_glyph_color.green = CLAMP ((guint) (0* 65535), 0, 65535);
+   da_glyph_color.blue = CLAMP ((guint) (0* 65535), 0, 65535);
+  
+   da_background_color.red = CLAMP ((guint) (1* 65535), 0, 65535);
+   da_background_color.green = CLAMP ((guint) (1 * 65535), 0, 65535);
+   da_background_color.blue = CLAMP ((guint) (1 * 65535), 0, 65535);
+   
+  }
+  else{
+   
+   da_glyph_color.red = CLAMP ((guint) (1 * 65535), 0, 65535);
+   da_glyph_color.green = CLAMP ((guint) (1* 65535), 0, 65535);
+   da_glyph_color.blue = CLAMP ((guint) (1* 65535), 0, 65535);
  
-  da_glyph_color.red = CLAMP ((guint) (0 * 65535), 0, 65535);
-  da_glyph_color.green = CLAMP ((guint) (0* 65535), 0, 65535);
-  da_glyph_color.blue = CLAMP ((guint) (0* 65535), 0, 65535);
- 
-  da_background_color.red = CLAMP ((guint) (1* 65535), 0, 65535);
-  da_background_color.green = CLAMP ((guint) (1 * 65535), 0, 65535);
-  da_background_color.blue = CLAMP ((guint) (1 * 65535), 0, 65535);
- 
+   da_background_color.red = CLAMP ((guint) (0* 65535), 0, 65535);
+   da_background_color.green = CLAMP ((guint) (0 * 65535), 0, 65535);
+   da_background_color.blue = CLAMP ((guint) (0 * 65535), 0, 65535);
+   
+  }
+  
  }
+
+ if( dual_page_mode ){
+  
+  //left page
+  page_setup(&lsurface, &lda_selection_region, ldraw_area, current_nc);
+  
+  //right page
+  page_setup(&surface, &da_selection_region, draw_area, rcurrent_nc); 
+  
+ }  
  else{
-  da_glyph_color.red = CLAMP ((guint) (1 * 65535), 0, 65535);
-  da_glyph_color.green = CLAMP ((guint) (1* 65535), 0, 65535);
-  da_glyph_color.blue = CLAMP ((guint) (1* 65535), 0, 65535);
  
-  da_background_color.red = CLAMP ((guint) (0* 65535), 0, 65535);
-  da_background_color.green = CLAMP ((guint) (0 * 65535), 0, 65535);
-  da_background_color.blue = CLAMP ((guint) (0 * 65535), 0, 65535);
+  page_setup(&surface, &da_selection_region, draw_area, current_nc);
+  
  }
- 
- page_change();
  
 }
 
 static void toggle_inverted_color_cb(GtkWidget *widget, gpointer user_data){
  
+ if(invert_color)
+  invert_color = FALSE;
+ else
+  invert_color = TRUE;
+  
  inverted_color_cb();
  
  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
@@ -152,11 +873,13 @@ static void toggle_inverted_color_cb(GtkWidget *widget, gpointer user_data){
 static void change_background_color_cb(GtkWidget *widget, gpointer user_data){
  
  if ( !gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
+ 
   if ( ! gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(widget))){
    PDF_BACKGROUND_COLOR_CHANGED = FALSE;
   }else{ 
    PDF_BACKGROUND_COLOR_CHANGED = TRUE;
   }
+  
  }
  
  if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(widget) ) ){
@@ -183,10 +906,8 @@ void toggle_hide_toolbar(void){
   TOOL_BAR_VISIBLE = TRUE;
     
  }
-  
- GdkScreen *screen = gdk_screen_get_default ();
  
- if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) ){
+ if( screen_height > (int)(page_height*zoom_factor) ){
   zoom(ZOOM_HEIGHT);
  }
     
@@ -325,7 +1046,7 @@ static void toggle_hide_toolbar_cb(GtkWidget *widget, gpointer user_data) {
  
 }
 
-static void color_set(int option){
+static void color_set(GtkWidget *widget, int option){
  
  GtkWidget *colorseldlg;
  
@@ -339,27 +1060,74 @@ static void color_set(int option){
  gint response = gtk_dialog_run (GTK_DIALOG (colorseldlg));
  
  if(response == GTK_RESPONSE_OK){ 
- 
+  
+  GdkRGBA color;
+  
   gtk_color_chooser_get_rgba (GTK_COLOR_CHOOSER (colorseldlg), &color);
   
-  if(option == 1){
+  if(option == 1){ //change highlight color
   
    text_highlight_mode_change();
-  
-   hc[0] = (guchar)(color.red*255);
-   hc[1] = (guchar)(color.green*255);
-   hc[2] = (guchar)(color.blue*255);
-  
-   char hc_color_name[9];
-  
-   sprintf(hc_color_name, "%02x%02x%02x00",hc[0],hc[1],hc[2]);
+   
+   cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 20, 20);
  
-   unsigned long hc_color = strtoul(hc_color_name, NULL, 16);
-   gdk_pixbuf_fill(hc_pixbuf, hc_color);
+   cairo_t *cr = cairo_create(surface);
+
+   cairo_set_source_rgba (cr, color.red, color.green, color.blue, color.alpha);
+   
+   cairo_paint(cr);
+   
+   if( widget ){
+    GtkWidget *image = gtk_button_get_image (GTK_BUTTON(widget));
+    gtk_image_set_from_surface (GTK_IMAGE(image), surface);
+   }
+   
+   if(surface)
+    cairo_surface_destroy (surface);
   
-   gtk_image_set_from_pixbuf(GTK_IMAGE(hc_button_Image),hc_pixbuf);
+   if(cr)
+    cairo_destroy (cr);
+   
+   if( gdk_rgba_equal(&color,&P_CM_FONT_COLOR->color ) ){
+    gtk_widget_destroy (colorseldlg);
+    return;
+   }
+   else if( gdk_rgba_equal(&color,&P_CM_BG_COLOR->color ) ){
+    gtk_widget_destroy (colorseldlg);
+    return;
+   }
+   else if( gdk_rgba_equal(&color,&P_HR_COLOR->color ) ){
+    gtk_widget_destroy (colorseldlg);
+    return;
+   }
+   
+   struct color_table *ct_tmp;
+   
+   ct_tmp = G_CM_BG_COLOR;
+   
+   if( !ct_tmp->next ){
+    
+    ct_tmp->next =  (struct color_table *)malloc(sizeof(struct color_table));
+    ct_tmp->next->rc = 1;
+    ct_tmp->next->color = color;
+    ct_tmp->next->next = NULL;
+    
+   }
+   else{
+   
+    struct color_table *tmp = ct_tmp->next;
+   
+    ct_tmp->next =  (struct color_table *)malloc(sizeof(struct color_table));
+    ct_tmp->next->rc = 1;
+    ct_tmp->next->color = color;
+    ct_tmp->next->next = tmp;
+    
+   }
+  
+   P_HR_COLOR = ct_tmp->next;
+   
   }
-  else if(option == 2){
+  else if(option == 2){ //change background color
    background_color[0] = color.red;
    background_color[1] = color.green;
    background_color[2] = color.blue;
@@ -373,20 +1141,22 @@ static void color_set(int option){
   da_background_color.green = CLAMP ((guint) (color.green* 65535), 0, 65535);
   da_background_color.blue = CLAMP ((guint) (color.blue* 65535), 0, 65535);
   
+  da_background_color.red = CLAMP ((guint) (color.red * 65535), 0, 65535);
+  da_background_color.green = CLAMP ((guint) (color.green* 65535), 0, 65535);
+  da_background_color.blue = CLAMP ((guint) (color.blue* 65535), 0, 65535);
+  
  }
  
  gtk_widget_destroy (colorseldlg);
     
 }
 
-static void color_set_cb(GtkWidget *widget, gpointer userdata){
- color_set(1);
+static void color_set_cb(GtkWidget *widget, gpointer user_data){
+ color_set(widget, 1);
 }
 
-static gboolean draw_area_draw( GtkWidget *widget, cairo_t *cr, gpointer data ){
- 
- draw_count++;
- 
+gboolean draw_area_draw( GtkWidget *widget, cairo_t *cr, gpointer data ){
+
  cairo_save (cr);
  
  if(widget == draw_area){
@@ -426,19 +1196,19 @@ static gboolean draw_area_draw( GtkWidget *widget, cairo_t *cr, gpointer data ){
 }
 
 static gboolean
-selections_render( GtkWidget *widget ){
- 
+selections_render( GtkWidget *widget , double zoom_factor){
+
  PopplerRectangle doc_area;
+ 
+ if (selection_surface)
+  cairo_surface_destroy (selection_surface);
+ 
+ cairo_t *cr;
  
  doc_area.x1 = start_x/zoom_factor;
  doc_area.y1 = start_y/zoom_factor;
  doc_area.x2 = stop_x/zoom_factor;
  doc_area.y2 = stop_y/zoom_factor;
- 
- if (selection_surface)
-   cairo_surface_destroy (selection_surface);
- 
- cairo_t *cr;
  
  selection_surface = cairo_image_surface_create ( CAIRO_FORMAT_ARGB32,
 						  (gint)((page_width*zoom_factor)+0.5), 
@@ -448,12 +1218,13 @@ selections_render( GtkWidget *widget ){
  
  cairo_scale(cr, zoom_factor, zoom_factor);
  
+ 
  if( !dual_page_mode ){
  
   if(!page){
    page = poppler_document_get_page(doc, current_page_num);
   }
- 
+  
   poppler_page_render_selection (page, cr,
 				 &doc_area, &da_doc_area,
 				 POPPLER_SELECTION_GLYPH,
@@ -471,10 +1242,10 @@ selections_render( GtkWidget *widget ){
    }
    
    poppler_page_render_selection (page, cr,
-				 &doc_area, &da_doc_area,
-				 POPPLER_SELECTION_GLYPH,
-				 &da_glyph_color,
-				 &da_background_color);
+				  &doc_area, &da_doc_area,
+				  POPPLER_SELECTION_GLYPH,
+				  &da_glyph_color,
+				  &da_background_color);
    
    gtk_widget_queue_draw (draw_area);
   }
@@ -562,7 +1333,8 @@ da_button_press (GtkWidget *widget, GdkEventButton *event, gpointer data){
  stop_x = event->x;
  stop_y = event->y;
  
- if (selection_surface){
+ if(selection_surface){
+ 
   cairo_surface_destroy (selection_surface);
   selection_surface = NULL;
   
@@ -609,7 +1381,33 @@ da_motion_notify (GtkWidget *widget, GdkEventMotion *event, gpointer data){
   stop_x = event->x;
   stop_y = event->y;
   
-  selections_render( widget );
+  if(!dual_page_mode)
+   selections_render( widget, zoom_factor );
+  else{
+   
+   if( widget == ldraw_area ){
+    
+    if( azoom_factor == 0.0 )
+     selections_render( widget, zoom_factor );
+    else if ( azoom_factor < 0 )// left page
+     selections_render( widget, -azoom_factor );
+    else
+     selections_render( widget, zoom_factor );
+     
+   }
+   else{
+    
+    if( azoom_factor == 0.0 )
+     selections_render( widget, zoom_factor );
+    else if ( azoom_factor < 0 )// left page
+     selections_render( widget, zoom_factor );
+    else
+     selections_render( widget, azoom_factor );
+    
+   }
+   
+   
+  }
    
  }
  else{
@@ -643,9 +1441,13 @@ da_motion_notify (GtkWidget *widget, GdkEventMotion *event, gpointer data){
 
 static gboolean
 da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
-
+ 
  if(start_y == -1.0)
   return FALSE;
+ else if( start_y == stop_y ){
+  start_x = start_y = stop_x = stop_y= -1.0;
+  return FALSE;
+ }
  
  if(mode == TEXT_HIGHLIGHT || mode == ERASE_TEXT_HIGHLIGHT){
  
@@ -742,15 +1544,52 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
   ihr[sel_count].height = -1;
   
  }
+ 
+ double tmp_zf;
+ 
+ if( !dual_page_mode )
+  tmp_zf = zoom_factor;
+ else{
+  
+  if( azoom_factor == 0.0 ){
+   tmp_zf = zoom_factor;
+  }
+  else{
+   
+   if( widget == ldraw_area ){
+    
+    if( azoom_factor < 0 ){ //left page
+     tmp_zf = -azoom_factor;
+    }
+    else{
+     tmp_zf = zoom_factor;
+    }
+    
+   }
+   else{
+    
+    if( azoom_factor < 0 ){ //left page
+     tmp_zf = zoom_factor;
+    }
+    else{
+     tmp_zf = azoom_factor;
+    }
+    
+   }
+   
+  }
+  
+ }
   
  for ( ; NULL != selection ; selection = g_list_next (selection)) {
   
   rectangle = (PopplerRectangle *)selection->data;
   
-  tmp_hr->x = (int)(rectangle->x1*zoom_factor+0.5);
-  tmp_hr->y = (int)(rectangle->y1*zoom_factor+0.5);
-  tmp_hr->width = (int)((rectangle->x2-rectangle->x1)*zoom_factor+0.5);
-  tmp_hr->height = (int)((rectangle->y2-rectangle->y1)*zoom_factor+0.5);
+  tmp_hr->x = (int)(rectangle->x1*tmp_zf+0.5);
+  tmp_hr->y = (int)(rectangle->y1*tmp_zf+0.5);
+  tmp_hr->width = (int)((rectangle->x2-rectangle->x1)*tmp_zf+0.5);
+  tmp_hr->height = (int)((rectangle->y2-rectangle->y1)*tmp_zf+0.5);
+  
   tmp_hr++;
    
  }
@@ -776,16 +1615,19 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
   //get current_nc
    
   if( !dual_page_mode ){ 
-   
-   save_highlight( widget, &current_nc->HR_HEAD );
-  
+    
+   save_highlight( widget, &current_nc->HR_HEAD, zoom_factor);
   }
   else{
    
    if( widget == ldraw_area ){
-   
-    save_highlight( widget, &current_nc->HR_HEAD );
     
+    if( azoom_factor == 0.0 )
+     save_highlight( widget, &current_nc->HR_HEAD, zoom_factor);
+    else if( azoom_factor < 0 )//left page
+     save_highlight( widget, &current_nc->HR_HEAD, -azoom_factor);
+    else
+     save_highlight( widget, &current_nc->HR_HEAD, zoom_factor);
    }
    else if( widget == draw_area ){
    
@@ -807,8 +1649,12 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
     }
     //get rcurrent_nc
     
-    save_highlight( widget, &rcurrent_nc->HR_HEAD );
-    
+    if( azoom_factor == 0.0 )
+     save_highlight( widget, &rcurrent_nc->HR_HEAD, zoom_factor);
+    else if( azoom_factor < 0 )//left page
+     save_highlight( widget, &rcurrent_nc->HR_HEAD, zoom_factor);
+    else
+     save_highlight( widget, &rcurrent_nc->HR_HEAD, azoom_factor);
    }
    
   }
@@ -824,7 +1670,7 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
   if( !dual_page_mode ){ 
    
    if( current_nc )
-    erase_highlight( widget, &current_nc->HR_HEAD );
+    erase_highlight( widget, &current_nc->HR_HEAD, tmp_zf );
   
   }
   else{
@@ -832,13 +1678,13 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
    if( widget == ldraw_area ){
     
     if( current_nc )
-     erase_highlight( widget, &current_nc->HR_HEAD );
+     erase_highlight( widget, &current_nc->HR_HEAD, tmp_zf );
     
    }
    else if( widget == draw_area ){
     
     if( rcurrent_nc )
-     erase_highlight( widget, &rcurrent_nc->HR_HEAD );
+     erase_highlight( widget, &rcurrent_nc->HR_HEAD, tmp_zf );
     
    }
    
@@ -922,11 +1768,12 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
   }
   
   g_string_append (selected_text, temp_text);
+ 
   g_string_append (selected_text, "\n");
   
   GtkClipboard *clipboard;
   
-  #if __linux__
+  #ifdef __linux__
   clipboard = 
      gtk_clipboard_get_for_display(gdk_display_get_default(),
                                    GDK_SELECTION_PRIMARY);
@@ -959,25 +1806,56 @@ da_button_release (GtkWidget *widget, GdkEventButton *event, gpointer data){
  
 }
 
-void init_gui(void){
-
- inverted = 0;
+#ifdef __APPLE__
+static gboolean win_state_event_cb( GtkWidget *widget, GdkEventWindowState *event, gpointer user_data ){
  
- current_page_num = 0;
+ if( event->new_window_state & GDK_WINDOW_STATE_FULLSCREEN ){
+  
+  if(!full_screen)
+   full_screen = TRUE;
+  else
+   full_screen = FALSE;
+  
+  full_screen_cb();
+  
+ }
+ else if( (event->new_window_state & GDK_WINDOW_STATE_FOCUSED) && full_screen ){
+  
+  full_screen = FALSE;
+  
+  full_screen_cb();
+  
+ }
+ 
+ return TRUE;
+}
+#endif
+
+void init_gui(void){
+ 
+ GdkScreen *screen = gdk_screen_get_default ();
+ 
+ screen_height = gdk_screen_get_height(screen);
+ screen_width = gdk_screen_get_width(screen);
+ 
+ current_page_num = -1;
 
  mode = pre_mode = TEXT_SELECTION;
  
  KEY_BUTTON_SEARCH = TRUE;
  
  hr = ihr = NULL;
+
+ cursor_pos =  0;
+ pre_cursor_pos = -1;
  
- hc[0] = 0xff;
- hc[1] = 0xff;
- hc[2] = 0x00;
+ pre_sw_height = 0;
  
- color.red = 1.0;
- color.green = 1.0;
- color.blue = 0.0;
+ bindex = 0;
+ 
+ full_screen = FALSE;
+  
+ current_cm = NULL;
  
  width_offset = 0;
  
@@ -989,12 +1867,8 @@ void init_gui(void){
  lmatches = rmatches = NULL;
  page_change_str = NULL;
 
- FONT_SIZE = 11;
- 
  selected_text = NULL;
-   
- layout_move = 0;
-
+ 
  start_x = start_y = stop_x = stop_y= -1.0;
  
  pre_keyval = GDK_KEY_Escape;
@@ -1004,34 +1878,29 @@ void init_gui(void){
  scroll_count = 0; 
  scroll_time = 0;
  scroll_zoom = -1;
+ 
+ layout = NULL;
+ 
+ azoom_factor = 0.0;
   
  accel_group = gtk_accel_group_new();
  
  win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+ 
+ gtk_window_maximize(GTK_WINDOW(win));
+ 
  gtk_window_add_accel_group(GTK_WINDOW(win), accel_group);
  
  //*****
  //cursor_enable = TRUE;
  //*****
  
- GdkScreen *screen = gdk_screen_get_default ();
- 
- if( page_height > page_width ){ //portrait
-  if(page_height >= gdk_screen_get_height(screen)){
-   gtk_widget_set_size_request(win, (int)(page_width/2)+30, gdk_screen_get_height(screen)/2 - 80);
-  }else{
-   gtk_widget_set_size_request(win, (int)page_width+30, gdk_screen_get_height(screen) - 80);
-  }
- }else{ //landscape
-  if(page_height >= gdk_screen_get_height(screen)){
-   gtk_widget_set_size_request(win, (int)(page_width/2)+1, (int)page_height/2 + 80);
-  }else{
-   gtk_widget_set_size_request(win, (int)page_width+1, (int)page_height + 80);
-  }
- }
- 
  g_signal_connect(G_OBJECT(win), "destroy", G_CALLBACK(on_destroy), NULL);
-
+ 
+ #ifdef __APPLE__
+ g_signal_connect(G_OBJECT(win), "window-state-event", G_CALLBACK(win_state_event_cb), NULL);
+ #endif
+ 
  vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 1);
     
  gtk_container_add(GTK_CONTAINER(win), vbox);
@@ -1095,7 +1964,6 @@ void init_gui(void){
 
  fileMi = gtk_menu_item_new_with_label("File");
  quitMi = gtk_menu_item_new_with_label("Quit");
-
  g_signal_connect(G_OBJECT(quitMi), "activate",
      G_CALLBACK(on_destroy), NULL);
  
@@ -1135,6 +2003,8 @@ void init_gui(void){
  dual_pageMi = gtk_check_menu_item_new_with_label("Dual Page");
  g_signal_connect(G_OBJECT(dual_pageMi), "activate", 
         G_CALLBACK(toggle_dual_page_cb), NULL);
+ gtk_widget_add_accelerator(dual_pageMi, "activate", accel_group,
+                     GDK_KEY_d, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
  
  full_screenMi = gtk_check_menu_item_new_with_label("Full Screen");
  g_signal_connect(G_OBJECT(full_screenMi), "activate", 
@@ -1143,6 +2013,8 @@ void init_gui(void){
  inverted_colorMi = gtk_check_menu_item_new_with_label("Invert Colors");
  g_signal_connect(G_OBJECT(inverted_colorMi), "activate", 
         G_CALLBACK(toggle_inverted_color_cb), NULL);
+ gtk_widget_add_accelerator(inverted_colorMi, "activate", accel_group,
+                     GDK_KEY_x, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
  
  //******       
  //cursor_modeMi = gtk_check_menu_item_new_with_label("Cursor mode");
@@ -1155,21 +2027,51 @@ void init_gui(void){
  //******
  
  goMi = gtk_menu_item_new_with_label("Go");
+ 
  nextpageMi = gtk_menu_item_new_with_label("Next Page");
+ g_signal_connect( G_OBJECT(nextpageMi), "activate",
+                   G_CALLBACK(next_page_cb), NULL);   
+ gtk_widget_add_accelerator(nextpageMi, "activate", accel_group,
+                     GDK_KEY_Page_Down, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+ 
  prepageMi = gtk_menu_item_new_with_label("Previous Page");
-
+ g_signal_connect( G_OBJECT(prepageMi), "activate",
+                   G_CALLBACK(prev_page_cb), NULL);
+ gtk_widget_add_accelerator(prepageMi, "activate", accel_group,
+                     GDK_KEY_Page_Up, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+ 
  modeMi = gtk_menu_item_new_with_label("Mode");
     
- normalMi = gtk_menu_item_new_with_label("Normal mode");
- text_highlightMi = gtk_menu_item_new_with_label("Text Highlight mode");
- erase_text_highlightMi = gtk_menu_item_new_with_label("Erase Text Highlight mode");
+ text_selectionMi = gtk_menu_item_new_with_label("Text Selection Mode");
+ g_signal_connect( G_OBJECT(text_selectionMi), "activate",
+                   G_CALLBACK(text_selection_mode_cb), NULL);
 
+ text_highlightMi = gtk_menu_item_new_with_label("Text Highlight mode");
+ g_signal_connect( G_OBJECT(text_highlightMi ), "activate",
+                   G_CALLBACK(text_highlight_mode_cb), NULL);
+ 
+ erase_text_highlightMi = gtk_menu_item_new_with_label("Erase Text Highlight Mode");
+ g_signal_connect( G_OBJECT( erase_text_highlightMi ), "activate",
+                   G_CALLBACK(erase_text_highlight_mode_cb), NULL);
+ 
  noteMi = gtk_menu_item_new_with_label("Note");
  
- add_commentMi = gtk_menu_item_new_with_label("Add a Comment");
+ add_commentMi = gtk_menu_item_new_with_label("Add A Comment");
+ g_signal_connect( G_OBJECT( add_commentMi ), "activate",
+                   G_CALLBACK(add_comment_cb), NULL);
+ 
  save_noteMi = gtk_menu_item_new_with_label("Save Notes");
+ g_signal_connect( G_OBJECT( save_noteMi ), "activate",
+                   G_CALLBACK(save_note_cb), NULL);
+ 
  save_commentMi = gtk_menu_item_new_with_label("Save Comments");
-    
+ g_signal_connect( G_OBJECT( save_commentMi ), "activate",
+                   G_CALLBACK(save_comment_cb), NULL);
+ 
+ prefMi = gtk_menu_item_new_with_label("Preferences");
+ g_signal_connect( G_OBJECT(prefMi), "activate",
+                   G_CALLBACK(pref_cb), NULL);
+ 
  gtk_menu_item_set_submenu(GTK_MENU_ITEM(fileMi), fileMenu);
  gtk_menu_shell_append(GTK_MENU_SHELL(fileMenu), quitMi);
  gtk_menu_shell_append(GTK_MENU_SHELL(menubar), fileMi);
@@ -1188,12 +2090,10 @@ void init_gui(void){
  gtk_menu_shell_append(GTK_MENU_SHELL(viewMenu), hide_toolbarMi);
  gtk_menu_shell_append(GTK_MENU_SHELL(viewMenu), change_background_colorMi);
  gtk_menu_shell_append(GTK_MENU_SHELL(viewMenu), dual_pageMi);
- gtk_widget_add_accelerator(dual_pageMi, "activate", accel_group,
-                     GDK_KEY_d, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+ 
  gtk_menu_shell_append(GTK_MENU_SHELL(viewMenu), full_screenMi);
  gtk_menu_shell_append(GTK_MENU_SHELL(viewMenu), inverted_colorMi);
- gtk_widget_add_accelerator(inverted_colorMi, "activate", accel_group,
-                     GDK_KEY_x, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+ 
  //******
  //gtk_menu_shell_append(GTK_MENU_SHELL(viewMenu), cursor_modeMi);
  //gtk_menu_shell_append(GTK_MENU_SHELL(viewMenu), continuous_modeMi);
@@ -1203,47 +2103,30 @@ void init_gui(void){
 
  gtk_menu_item_set_submenu(GTK_MENU_ITEM(goMi), goMenu);
  gtk_menu_shell_append(GTK_MENU_SHELL(goMenu), prepageMi);
- g_signal_connect(G_OBJECT(prepageMi), "activate",
-     G_CALLBACK(prev_page_cb), NULL);
- gtk_widget_add_accelerator(prepageMi, "activate", accel_group,
-                     GDK_KEY_Page_Up, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+ 
  gtk_menu_shell_append(GTK_MENU_SHELL(goMenu), nextpageMi);
- g_signal_connect(G_OBJECT(nextpageMi), "activate",
-     G_CALLBACK(next_page_cb), NULL);
-    
- gtk_widget_add_accelerator(nextpageMi, "activate", accel_group,
-                     GDK_KEY_Page_Down, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+ 
  gtk_menu_shell_append(GTK_MENU_SHELL(menubar), goMi);
 
  gtk_menu_item_set_submenu(GTK_MENU_ITEM(modeMi), modeMenu);
- gtk_menu_shell_append(GTK_MENU_SHELL(modeMenu), normalMi);
- g_signal_connect(G_OBJECT( normalMi), "activate",
-     G_CALLBACK(text_selection_mode_cb), NULL);
+ gtk_menu_shell_append(GTK_MENU_SHELL(modeMenu), text_selectionMi);
+ 
  gtk_menu_shell_append(GTK_MENU_SHELL(modeMenu), text_highlightMi);
- g_signal_connect(G_OBJECT( text_highlightMi), "activate",
-     G_CALLBACK(text_highlight_mode_cb), NULL);
+ 
  gtk_menu_shell_append(GTK_MENU_SHELL(modeMenu), erase_text_highlightMi);
- g_signal_connect(G_OBJECT( erase_text_highlightMi), "activate",
-     G_CALLBACK(erase_text_highlight_mode_cb), NULL);
-    
+ 
  gtk_menu_shell_append(GTK_MENU_SHELL(menubar), modeMi);
 
  gtk_menu_item_set_submenu(GTK_MENU_ITEM(noteMi), noteMenu);
- 
  gtk_menu_shell_append(GTK_MENU_SHELL(noteMenu), add_commentMi);
  
- g_signal_connect(G_OBJECT( add_commentMi), "activate",
-     G_CALLBACK(add_comment_cb), NULL);
-
  gtk_menu_shell_append(GTK_MENU_SHELL(noteMenu), save_noteMi);
- g_signal_connect(G_OBJECT( save_noteMi), "activate",
-     G_CALLBACK(save_note_cb), NULL);
+ 
  gtk_menu_shell_append(GTK_MENU_SHELL(noteMenu), save_commentMi);
- g_signal_connect(G_OBJECT( save_commentMi), "activate",
-     G_CALLBACK(save_comment_cb), NULL);
-    
+ 
+ gtk_menu_shell_append(GTK_MENU_SHELL(noteMenu), prefMi);
  gtk_menu_shell_append(GTK_MENU_SHELL(menubar), noteMi);
-
+ 
  gtk_box_pack_start(GTK_BOX(vbox), menubar, FALSE, FALSE, 0);
  
  //*****Menubar Initialization*****
@@ -1257,26 +2140,39 @@ void init_gui(void){
  
  gtk_box_set_spacing(GTK_BOX(toolbar_box), 1);
  
- hc_pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, FALSE, 8, 20, 20);
- char hc_color_name[9];
-  
- sprintf(hc_color_name, "%02x%02x%02x00",hc[0],hc[1],hc[2]);
- 
- unsigned long hc_color = strtoul (hc_color_name, NULL, 16);
- 
- gdk_pixbuf_fill(hc_pixbuf, hc_color);
- 
  hc_button = gtk_button_new();
  
- hc_button_Image = gtk_image_new_from_pixbuf(hc_pixbuf);
+ cairo_surface_t * hc_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 20, 20);
+ 
+ cairo_t *hc_cr = cairo_create(hc_surface);
+ 
+ cairo_set_source_rgba (hc_cr, G_HR_COLOR->color.red, 
+                               G_HR_COLOR->color.green, 
+                               G_HR_COLOR->color.blue, 
+                               G_HR_COLOR->color.alpha);
+
+ cairo_paint(hc_cr);
+ 
+ hc_button_Image = gtk_image_new_from_surface(hc_surface);
+ 
  gtk_button_set_image(GTK_BUTTON(hc_button),hc_button_Image); 
+ 
  gtk_widget_set_can_focus(hc_button, FALSE);
+ 
  g_signal_connect(G_OBJECT(hc_button), "clicked",
                   G_CALLBACK(color_set_cb), NULL); 
  
  gtk_widget_set_can_focus(hc_button, FALSE);
  
  gtk_container_add (GTK_CONTAINER (toolbar_box), hc_button);
+ 
+ if(hc_surface)
+  cairo_surface_destroy (hc_surface);
+  
+ if(hc_cr)
+  cairo_destroy (hc_cr);
+ 
+ //hc_color
  
  highlight_color = gtk_tool_item_new ();
  
@@ -1317,7 +2213,7 @@ void init_gui(void){
  add_comment_button = gtk_button_new_from_icon_name ("list-add", GTK_ICON_SIZE_BUTTON);
  gtk_widget_set_can_focus(add_comment_button, FALSE);
  g_signal_connect(G_OBJECT(add_comment_button), "clicked", 
-        G_CALLBACK(add_comment), NULL);
+        G_CALLBACK(add_comment_cb), NULL);
  
  text_selection_mode_button = gtk_button_new();
   
@@ -1366,29 +2262,56 @@ void init_gui(void){
  
  gtk_box_pack_end(GTK_BOX(vbox), findbar, FALSE, FALSE, 0);
  
- draw_area = gtk_drawing_area_new();
- ldraw_area = gtk_drawing_area_new();
+ init_note();
  
- da_width = (gint)((page_width*zoom_factor)+0.5);
- da_height = (gint)((page_height*zoom_factor)+0.5);
+ if(!layout){
  
- pre_da_width = da_width;
+  draw_area = gtk_drawing_area_new();
+  ldraw_area = gtk_drawing_area_new();
+  
+  da_width = (gint)((page_width*zoom_factor)+0.5);
+  da_height = (gint)((page_height*zoom_factor)+0.5);
  
- gtk_widget_set_size_request (draw_area, (gint)((page_width*zoom_factor)+0.5), (gint)((page_height*zoom_factor)+0.5));
+  pre_da_width = da_width;
  
- gtk_widget_hide(ldraw_area);
+  gtk_widget_set_size_request (draw_area, (gint)((page_width*zoom_factor)+0.5), (gint)((page_height*zoom_factor)+0.5));
  
- gtk_widget_add_events (draw_area, GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK );
+  gtk_widget_hide(ldraw_area);
  
- gtk_widget_add_events (ldraw_area, GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK );
  
- g_signal_connect (G_OBJECT (draw_area), "draw", 
-                   G_CALLBACK (draw_area_draw), 
-                   NULL);
+  g_signal_connect (G_OBJECT (draw_area), "draw", 
+                    G_CALLBACK (draw_area_draw), 
+                    NULL);
  
- g_signal_connect (G_OBJECT (ldraw_area), "draw", 
-                   G_CALLBACK (draw_area_draw), 
-                   NULL);
+  g_signal_connect (G_OBJECT (ldraw_area), "draw", 
+                    G_CALLBACK (draw_area_draw), 
+                    NULL);
+ 
+  layout = gtk_layout_new(NULL, NULL);
+ 
+  gint width, height;
+ 
+  width = (gint)((page_width*zoom_factor)+0.5);
+  height = (gint)((page_height*zoom_factor)+0.5);
+  
+  gtk_layout_set_size(GTK_LAYOUT(layout), width, height);
+ 
+  gtk_layout_put (GTK_LAYOUT (layout), ldraw_area, 0, 0);
+  gtk_layout_put (GTK_LAYOUT (layout), draw_area, 0, 0);
+  
+ }
+ 
+ gtk_widget_add_events (draw_area, GDK_POINTER_MOTION_MASK | 
+                                   GDK_BUTTON_MOTION_MASK | 
+                                   GDK_BUTTON_PRESS_MASK | 
+                                   GDK_BUTTON_RELEASE_MASK | 
+                                   GDK_SCROLL_MASK );
+ 
+ gtk_widget_add_events (ldraw_area, GDK_POINTER_MOTION_MASK | 
+                                    GDK_BUTTON_MOTION_MASK | 
+                                    GDK_BUTTON_PRESS_MASK | 
+                                    GDK_BUTTON_RELEASE_MASK | 
+                                    GDK_SCROLL_MASK );
  
  g_signal_connect (G_OBJECT (draw_area), "button-press-event",
 	           G_CALLBACK (da_button_press),
@@ -1422,24 +2345,10 @@ void init_gui(void){
                   G_CALLBACK(da_scroll_cb),
                   NULL);
                   
-  g_signal_connect(G_OBJECT (draw_area), "touch-event", 
+ g_signal_connect(G_OBJECT (draw_area), "touch-event", 
                   G_CALLBACK(da_touch_cb),
                   NULL);
  
- //drawarea
- 
- layout = gtk_layout_new(NULL, NULL);
- 
- gint width, height;
- 
- width = (gint)((page_width*zoom_factor)+0.5);
- height = (gint)((page_height*zoom_factor)+0.5);
- 
- gtk_layout_set_size(GTK_LAYOUT(layout), width, height);
- 
- gtk_layout_put (GTK_LAYOUT (layout), ldraw_area, 0, 0);
- gtk_layout_put (GTK_LAYOUT (layout), draw_area, 0, 0);
-    
  gtk_container_add(GTK_CONTAINER(scrolled_window), layout);
    
  g_signal_connect(scrolled_window, "key-press-event", G_CALLBACK(scrolled_window_keypress_cb), findbar);
@@ -1450,6 +2359,92 @@ void init_gui(void){
  pre_sw_width = sw_alloc.width;
 
  gtk_widget_show_all(win);
+ 
+ #ifdef __APPLE__
+ page_change();
+ #endif
+ 
+ if( dual_page_mode && invert_color ){
+  
+  if(dual_page_mode){
+   dual_page_mode = FALSE;
+  }else
+   dual_page_mode = TRUE;
+    
+  gtk_check_menu_item_set_active( GTK_CHECK_MENU_ITEM(dual_pageMi), TRUE );
+  
+  if( mode == TEXT_SELECTION ){
+  
+    da_glyph_color.red = CLAMP ((guint) (0 * 65535), 0, 65535);
+    da_glyph_color.green = CLAMP ((guint) (0* 65535), 0, 65535);
+    da_glyph_color.blue = CLAMP ((guint) (0* 65535), 0, 65535);
+  
+    da_background_color.red = CLAMP ((guint) (1* 65535), 0, 65535);
+    da_background_color.green = CLAMP ((guint) (1 * 65535), 0, 65535);
+    da_background_color.blue = CLAMP ((guint) (1 * 65535), 0, 65535);
+   
+  }
+ 
+  
+  if(invert_color)
+   invert_color = FALSE;
+  else
+   invert_color = TRUE;
+  
+  gtk_check_menu_item_set_active( GTK_CHECK_MENU_ITEM(inverted_colorMi), TRUE);
+  
+ }
+ else{
+ 
+  if(dual_page_mode){
+   
+   if(dual_page_mode)
+    dual_page_mode = FALSE;
+   else
+    dual_page_mode = TRUE;
+    
+   gtk_check_menu_item_set_active( GTK_CHECK_MENU_ITEM(dual_pageMi), TRUE );
+   
+  }
+  else{
+   gtk_widget_hide(ldraw_area);
+  }
+  
+  if(invert_color){
+   
+   if(invert_color)
+    invert_color = FALSE;
+   else
+    invert_color = TRUE;
+   
+   gtk_check_menu_item_set_active( GTK_CHECK_MENU_ITEM(inverted_colorMi), TRUE);
+   
+  }
+  
+ }
+ 
+ 
+ struct list_head *tmp;
+ struct note_cache *nc_tmp = NULL;
+ struct note *cm_entry;
+ 
+ if( note_cache )
+  nc_tmp = note_cache->next;
+ 
+ while( nc_tmp ){
+ 
+  list_for_each(tmp, &nc_tmp->CM_HEAD){
+
+   cm_entry = list_entry(tmp, struct note, list);
+   
+   if( gtk_widget_is_visible(cm_entry->comment) )
+    gtk_widget_hide(cm_entry->comment);
+  
+  }//list_for_each(tmp, &nc_tmp->CM_HEAD)
+
+  nc_tmp = nc_tmp->next;
+  
+ }
 
  gtk_widget_hide(findbar);
  gtk_widget_hide(toolbar);
@@ -1500,10 +2495,81 @@ static void size_adjust_cb(GtkAllocation *allocation){
    gtk_layout_move(GTK_LAYOUT(layout), draw_area, width_offset, height_offset);
   }
   else{
+   
    int dp_width = (int)(zoom_factor*page_width);
    
-   gtk_layout_move(GTK_LAYOUT(layout), draw_area, dp_width+1, height_offset);
-   gtk_layout_move(GTK_LAYOUT(layout), ldraw_area, 0, height_offset);
+   GtkAllocation da_alloc,lda_alloc;
+   gtk_widget_get_allocation (draw_area, &da_alloc);
+   gtk_widget_get_allocation (ldraw_area, &lda_alloc);
+   
+   if( dp_width > lda_alloc.width+1 ){
+   
+    char tmp_zf[10];
+   
+    if(page_width >= page_height){
+    
+     sprintf(tmp_zf, "%.3f", ( (screen_width+12 )/2.0/ page_width));
+     
+    }
+    else{
+  
+     #if GTK_CHECK_VERSION(3,18,10)
+     sprintf(tmp_zf, "%.3f", ( (screen_width-4 )/2.0/ page_width));
+     #else
+     sprintf(tmp_zf, "%.3f", ( (screen_width-18 )/2.0/ page_width));
+     #endif
+    }
+   
+    dp_width = (int)(atof(tmp_zf)*page_width)-15;
+    
+   }
+   
+   if( da_alloc.width == lda_alloc.width && da_alloc.height == lda_alloc.height ){
+    gtk_layout_move(GTK_LAYOUT(layout), draw_area, dp_width+1, height_offset);
+    gtk_layout_move(GTK_LAYOUT(layout), ldraw_area, 0, height_offset);
+   }
+   else{
+   
+    dp_width = lda_alloc.width;
+   
+    if( da_alloc.height > screen_height )
+     gtk_layout_move(GTK_LAYOUT(layout), draw_area, dp_width, 0);
+    else
+     gtk_layout_move(GTK_LAYOUT(layout), draw_area, dp_width, height_offset);
+    
+    if( lda_alloc.height > screen_height )
+     gtk_layout_move(GTK_LAYOUT(layout), ldraw_area, 0, 0);
+    else{
+     
+     double awidth, aheight, bwidth, bheight;
+   
+     PopplerPage* apage = poppler_document_get_page(doc, current_page_num);
+ 
+     poppler_page_get_size(apage, &awidth, &aheight); 
+ 
+     apage = poppler_document_get_page(doc, current_page_num+1);
+  
+     poppler_page_get_size(apage, &bwidth, &bheight); 
+ 
+     if( awidth == bwidth && aheight == bheight )
+      gtk_layout_move(GTK_LAYOUT(layout), ldraw_area, 0, height_offset);
+     else{
+     
+     
+      GtkAllocation sw_alloc;
+      gtk_widget_get_allocation(scrolled_window, &sw_alloc);
+      
+      gtk_layout_move(GTK_LAYOUT(layout), ldraw_area, 
+                                          0, 
+                                          ( sw_alloc.height - 2 - lda_alloc.height )/2);
+     
+     }
+     
+     
+    }
+    
+   }
+   
   }
   
  }
@@ -1512,7 +2578,6 @@ static void size_adjust_cb(GtkAllocation *allocation){
   display_comment(&current_nc->CM_HEAD);
  
  if( dual_page_mode ){
-  
   if( rcurrent_nc )
    display_comment(&rcurrent_nc->CM_HEAD);
  }
@@ -1557,9 +2622,6 @@ size_allocate_cb( GtkWidget *win, GtkAllocation *allocation, gpointer data){
   GtkAllocation w_alloc;
   gtk_widget_get_allocation (win, &w_alloc);
   
-  GdkScreen *screen = gdk_screen_get_default ();
-  int screen_width = gdk_screen_get_width(screen);
-  
   if(screen_width == w_alloc.width+2){
    zoom(ZOOM_WIDTH);
   }
@@ -1600,7 +2662,7 @@ size_allocate_cb( GtkWidget *win, GtkAllocation *allocation, gpointer data){
   g_signal_emit_by_name(G_OBJECT(scrolled_window), "size-allocate", allocation, data);
   
  }
- 
+
 } // end of size_allocate_cb
 
 gboolean time_handler(GtkWidget *widget) {
@@ -1630,9 +2692,7 @@ on_findtext_key_release(GtkWidget *findtext, GdkEventKey *event, gpointer user_d
    
    KEY_BUTTON_SEARCH = TRUE;
    
-   GdkScreen *screen = gdk_screen_get_default ();
-
-   if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) ){
+   if( screen_height > (int)(page_height*zoom_factor) ){
     zoom(ZOOM_HEIGHT);
    }
    
@@ -1683,7 +2743,6 @@ on_findtext_key_release(GtkWidget *findtext, GdkEventKey *event, gpointer user_d
 void erase_text_highlight_mode_change(void) {
  
  if( find_ptr ){
-  
   invert_search_region();
   g_list_free(find_ptr_head);
   find_ptr_head = NULL;
@@ -1697,7 +2756,12 @@ void erase_text_highlight_mode_change(void) {
  
  char *page_str = (char*)malloc(100);
  
- sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[E]");
+ sprintf(page_str, "%s page %d/%d %s",
+                    file_name, 
+                    current_page_num+1, 
+                    poppler_document_get_n_pages(doc), 
+                    "[E]");
+                    
  gtk_window_set_title(GTK_WINDOW(win), page_str);
  
  free(page_str);
@@ -1714,7 +2778,7 @@ void erase_text_highlight_mode_change(void) {
 
 static void
 erase_text_highlight_mode_cb(GtkWidget* widget, gpointer data) {
-
+ 
  erase_text_highlight_mode_change();
  
 }
@@ -1762,22 +2826,21 @@ void text_selection_mode_change(void){
 
 static void
 text_selection_mode_cb(GtkWidget* widget, gpointer data) {
-
+ 
  text_selection_mode_change();
-
+ 
 }
 
 void
 text_highlight_mode_change(void) {
  
- if( find_ptr ){
-   
+ if( find_ptr ){  
   invert_search_region();
   g_list_free(find_ptr_head);
   find_ptr_head = NULL;
   find_ptr = NULL;
  }
- 
+   
  if(mode != TEXT_HIGHLIGHT)
   pre_mode = mode;
 
@@ -1785,7 +2848,12 @@ text_highlight_mode_change(void) {
 
  char *page_str = (char*)malloc(100);
  
- sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[H]");
+ sprintf(page_str, "%s page %d/%d %s",
+                    file_name, 
+                    current_page_num+1, 
+                    poppler_document_get_n_pages(doc), 
+                    "[H]");
+ 
  gtk_window_set_title(GTK_WINDOW(win), page_str);
  
  free(page_str);
@@ -1794,17 +2862,17 @@ text_highlight_mode_change(void) {
  da_glyph_color.green = CLAMP ((guint) (0* 65535), 0, 65535);
  da_glyph_color.blue = CLAMP ((guint) (0* 65535), 0, 65535);
  
- da_background_color.red = CLAMP ((guint) (1* 65535), 0, 65535);
- da_background_color.green = CLAMP ((guint) (1 * 65535), 0, 65535);
- da_background_color.blue = CLAMP ((guint) (0 * 65535), 0, 65535);
+ da_background_color.red = CLAMP ((guint) (P_HR_COLOR->color.red* 65535), 0, 65535);
+ da_background_color.green = CLAMP ((guint) (P_HR_COLOR->color.green * 65535), 0, 65535);
+ da_background_color.blue = CLAMP ((guint) (P_HR_COLOR->color.blue * 65535), 0, 65535);
  
 }
 
 static void
 text_highlight_mode_cb(GtkWidget* widget, gpointer data) {
-
+ 
  text_highlight_mode_change();
-
+ 
 }
 
 gboolean
@@ -2162,9 +3230,7 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
          
      gtk_widget_show(findbar);
      
-     GdkScreen *screen = gdk_screen_get_default ();
-         
-     if( gdk_screen_get_height(screen) > (int)(page_height*zoom_factor) ){
+     if( screen_height > (int)(page_height*zoom_factor) ){
       zoom(ZOOM_HEIGHT);
      }
          
@@ -2247,10 +3313,10 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
        
     if (event->state & GDK_CONTROL_MASK){
      
-      zoom(ZOOM_IN);
+     zoom(ZOOM_IN);
         
-      if(pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT)
-       mode = pre_mode;
+     if(pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT)
+      mode = pre_mode;
      
     }
     
@@ -2260,10 +3326,10 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
        
     if (event->state & GDK_CONTROL_MASK){
      
-      zoom(ZOOM_OUT);
+     zoom(ZOOM_OUT);
         
-      if(pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT)
-       mode = pre_mode;
+     if(pre_mode == TEXT_HIGHLIGHT || pre_mode == ERASE_TEXT_HIGHLIGHT)
+      mode = pre_mode;
      
     }
     
@@ -2281,10 +3347,10 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
     break;
    case GDK_KEY_F11 :
     
-    if ( !gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(full_screenMi) ) )
-     gtk_check_menu_item_set_active( GTK_CHECK_MENU_ITEM(full_screenMi), TRUE );
+    if(!full_screen)
+     full_screen = TRUE;
     else
-     gtk_check_menu_item_set_active( GTK_CHECK_MENU_ITEM(full_screenMi), FALSE );
+     full_screen = FALSE;
     
     full_screen_cb();
     
@@ -2330,53 +3396,24 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
    case GDK_KEY_C :
       
     if (event->state & GDK_SHIFT_MASK){
-      
-     GtkWidget *colorseldlg = gtk_color_chooser_dialog_new ("Select Highlight Color", NULL);
-
-     gint response = gtk_dialog_run (GTK_DIALOG (colorseldlg));
-         
-     if(response == GTK_RESPONSE_OK){
-          
-      text_highlight_mode_change();
-        
-      gtk_color_chooser_get_rgba (GTK_COLOR_CHOOSER (colorseldlg), &color);
-          
-      hc[0] = (guchar)(color.red*255);
-      hc[1] = (guchar)(color.green*255);
-      hc[2] = (guchar)(color.blue*255);
-          
-      char hc_color_name[9];
-          
-      sprintf(hc_color_name, "%02x%02x%02x00",hc[0],hc[1],hc[2]);
-          
-      unsigned long hc_color = strtoul(hc_color_name, NULL, 16);
-      gdk_pixbuf_fill(hc_pixbuf, hc_color);
-          
-      gtk_image_set_from_pixbuf(GTK_IMAGE(hc_button_Image),hc_pixbuf);
      
-      da_background_color.red = CLAMP ((guint) (color.red * 65535), 0, 65535);
-      da_background_color.green = CLAMP ((guint) (color.green* 65535), 0, 65535);
-      da_background_color.blue = CLAMP ((guint) (color.blue* 65535), 0, 65535);
-          
-     }
-         
-     gtk_widget_destroy (colorseldlg);
-         
+     color_set(NULL, 1);
+     
     }//end of if (event->state & GDK_CONTROL_MASK
     
     direction = GTK_SCROLL_NONE;
     break;
    case GDK_KEY_x : 
-    
+     
      if (event->state & GDK_CONTROL_MASK){
+      
+      if(invert_color)
+       invert_color = FALSE;
+      else
+       invert_color = TRUE;
       
       inverted_color_cb();
       
-      if ( !gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ) 
-       gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(inverted_colorMi), TRUE);
-      else
-       gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(inverted_colorMi), FALSE);
-       
      }
     
     direction = GTK_SCROLL_NONE;
@@ -2384,7 +3421,7 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
    case GDK_KEY_B :
     if (event->state & GDK_SHIFT_MASK)
      if ( !gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) )
-      color_set(2);
+      color_set(widget, 2);
     
     direction = GTK_SCROLL_NONE;
     break;
@@ -2393,9 +3430,9 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
     if (event->state & GDK_CONTROL_MASK){
         
      if( mode == TEXT_SELECTION ){
-         
-      text_highlight_mode_cb(NULL, NULL);
-         
+      
+      text_highlight_mode_change();
+     
       char *page_str = (char*)malloc(100);
          
       sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[H]");
@@ -2405,9 +3442,9 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
      
      }
      else if( mode == TEXT_HIGHLIGHT ){
-         
-      erase_text_highlight_mode_cb(NULL, NULL);
-         
+      
+      erase_text_highlight_mode_change();
+      
       char *page_str = (char*)malloc(100);
          
       sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[E]");
@@ -2417,9 +3454,9 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
       
      }
      else if( mode == ERASE_TEXT_HIGHLIGHT ){
-         
-      text_selection_mode_cb(NULL, NULL);
-         
+      
+      text_selection_mode_change();
+      
       char *page_str = (char*)malloc(100);
          
       sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[S]");
@@ -2435,7 +3472,12 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
    case GDK_KEY_q :
     
     if (event->state & GDK_CONTROL_MASK){
-     on_destroy(NULL, NULL);
+     
+     save_note();
+     save_pref();  
+     
+     gtk_main_quit();
+    
     }
     
     direction = GTK_SCROLL_NONE;
@@ -2502,12 +3544,12 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
      find_ptr = NULL;
     }
     else{
-    
-     if ( gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(full_screenMi))){
-      gtk_window_unfullscreen (GTK_WINDOW (win));
-      gtk_widget_show (menubar);
-      
+     
+     if( full_screen ){
       gtk_check_menu_item_set_active( GTK_CHECK_MENU_ITEM(full_screenMi), FALSE );
+      full_screen = FALSE;
+      full_screen_cb();
+      
      }
      
     }
@@ -2533,7 +3575,9 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
      
      zoom(ZOOM_HEIGHT);
         
-    }else if(areas_ptr > areas){
+    }
+    /*
+    else if(areas_ptr > areas){
    
      if(inverted){
           
@@ -2594,35 +3638,35 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
       
       g_message("lh adj_n = %d", adj_n);
       
-      /*
-      if( adj_n == 1 )
-       //gtk_adjustment_set_value(hadj, sw_alloc.width/2 );
-       gtk_adjustment_set_value(hadj, 500 );
-      else
-       gtk_adjustment_set_value(hadj, 500*( adj_n ));
-      // //gtk_adjustment_set_value(hadj, sw_alloc.width*( adj_n-1 ));
-      */
+      
+      //if( adj_n == 1 )
+      // //gtk_adjustment_set_value(hadj, sw_alloc.width/2 );
+      // gtk_adjustment_set_value(hadj, 500 );
+      //else
+      // gtk_adjustment_set_value(hadj, 500*( adj_n ));
+      //// //gtk_adjustment_set_value(hadj, sw_alloc.width*( adj_n-1 ));
+      
       
       gtk_adjustment_set_value(hadj, sw_alloc.width*( adj_n*405 ));
       
-      /*
-      gdouble adj;
       
-      if( cursor_x - sw_alloc.width > 500 )
-      //if( cursor_x - sw_alloc.width > 500*adj_n )
-       //adj = sw_alloc.width*( (int)(cursor_x/sw_alloc.width) );
-       //adj = 580*( (int)(cursor_x/sw_alloc.width) );
-       adj = 580*adj_n;
-      else
-       adj = 580;
-      
-      if(adj > gtk_adjustment_get_upper(hadj))
-       adj =  1500;
-       
-      g_message("lh adj = %f", adj);
-      
-      gtk_adjustment_set_value(hadj, adj ); 
-      */
+      //gdouble adj;
+      //
+      //if( cursor_x - sw_alloc.width > 500 )
+      ////if( cursor_x - sw_alloc.width > 500*adj_n )
+      // //adj = sw_alloc.width*( (int)(cursor_x/sw_alloc.width) );
+      // //adj = 580*( (int)(cursor_x/sw_alloc.width) );
+      // adj = 580*adj_n;
+      //else
+      // adj = 580;
+      //
+      //if(adj > gtk_adjustment_get_upper(hadj))
+      // adj =  1500;
+      // 
+      //g_message("lh adj = %f", adj);
+      //
+      //gtk_adjustment_set_value(hadj, adj ); 
+   
       
      }
      else{
@@ -2633,9 +3677,11 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
      
 
     }
+    */
     
     direction = GTK_SCROLL_NONE;
     break;
+   /* 
    case GDK_KEY_i : 
     
     g_message("20170714 i line_count = %d", line_count);
@@ -2684,14 +3730,14 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
      
      if( (*areas_line[line_count]).y1 == (*areas_ptr).y1 ){
      
-      /*
-      if(line_count == 0){
-       areas_ptr = areas;
-       g_message("i (*areas_ptr).x1 = %f, (*areas_ptr).x2 = %f", (*areas_ptr).x1, (*areas_ptr).x2);
-       g_message("i (*areas_ptr).y1 = %f, (*areas_ptr).y2 = %f", (*areas_ptr).y1, (*areas_ptr).y2);
-      }else
-       areas_ptr = areas_line[line_count]+line_offset+1;
-      */
+      
+      //if(line_count == 0){
+      // areas_ptr = areas;
+      // g_message("i (*areas_ptr).x1 = %f, (*areas_ptr).x2 = %f", (*areas_ptr).x1, (*areas_ptr).x2);
+      // g_message("i (*areas_ptr).y1 = %f, (*areas_ptr).y2 = %f", (*areas_ptr).y1, (*areas_ptr).y2);
+      //}else
+      // areas_ptr = areas_line[line_count]+line_offset+1;
+      
       
       g_message("20170713");
       
@@ -2914,6 +3960,7 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
     
     direction = GTK_SCROLL_NONE;
     break;
+   */ 
    default:
 
     if( strlen(event->string) == 1 ){
@@ -2934,8 +3981,21 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
        page_change_str = str;
       }
       
+      if( mode != PAGE_CHANGE )
+       pre_mode = mode;
+      
       mode = PAGE_CHANGE;         
      }// end of if(  *(event->string) >= 48 && *(event->string) <=57 )
+     else{
+      
+      if( mode == PAGE_CHANGE ){
+       mode = pre_mode;
+       free(page_change_str);
+       page_change_str = NULL;
+      }
+      
+     }
+    
     }// end of if( strlen(event->string) == 1 )
          
     return FALSE;
@@ -2949,10 +4009,101 @@ scrolled_window_keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data
 
 void
 on_destroy(GtkWidget* widget, gpointer data) {
-   
+ 
  save_note();
+ save_pref();  
+ 
  gtk_main_quit();
 
+}
+
+gboolean
+cursor_position_changed_cb(GtkTextBuffer *buffer){
+ 
+ gint pos;
+ g_object_get (buffer, "cursor-position", &pos, NULL);
+ 
+ GtkTextIter start, end;
+
+ pre_str_pos = str_pos;
+ str_pos = pos;
+ 
+ GtkTextIter piter;
+ 
+ gtk_text_buffer_get_iter_at_mark(buffer,
+      &cur_cursor, gtk_text_buffer_get_insert(buffer));
+ 
+ gint row = gtk_text_iter_get_line(&cur_cursor);
+ gint col = gtk_text_iter_get_line_offset(&cur_cursor);
+ 
+ gtk_text_buffer_get_start_iter (buffer, &start);
+ gtk_text_buffer_get_end_iter (buffer, &end);
+ char *text = gtk_text_buffer_get_text (buffer, &start, &end, FALSE);
+ 
+ bindex = gtk_text_iter_get_offset(&cur_cursor);
+ 
+ if(gtk_text_iter_is_end(&cur_cursor)){//last character
+  
+  bindex = gtk_text_iter_get_bytes_in_line(&cur_cursor);
+  
+  if(row > 0){
+   
+   gint line_count = gtk_text_buffer_get_line_count(buffer);
+   gint current_line = gtk_text_iter_get_line(&cur_cursor);
+   
+   GtkTextIter liter;
+    
+   while( current_line != 0 ){
+     
+    gtk_text_buffer_get_iter_at_line ( buffer,
+                                       &liter,
+                                       current_line-1);
+    
+    bindex = bindex + gtk_text_iter_get_bytes_in_line(&liter);
+    
+    current_line--;
+     
+   }
+
+  }
+   
+ }
+ else{
+  
+  bindex = gtk_text_iter_get_line_index(&cur_cursor);
+   
+  if( col == 0 ){
+    
+   if( bindex > 0)
+    bindex--;
+   
+  }
+   
+  if(row > 0){
+   
+   gint line_count = gtk_text_buffer_get_line_count(buffer);
+   gint current_line = gtk_text_iter_get_line(&cur_cursor);
+   
+   GtkTextIter liter;
+    
+   while( current_line != 0 ){
+     
+    gtk_text_buffer_get_iter_at_line ( buffer,
+                                       &liter,
+                                       current_line-1);
+    
+    bindex = bindex + gtk_text_iter_get_bytes_in_line(&liter);
+     
+    current_line--;
+     
+   }
+    
+  }
+   
+ }
+
+ 
+ gtk_widget_queue_draw (current_cm->comment);
 }
 
 void

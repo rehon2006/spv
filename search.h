@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,22 +18,26 @@
 #define SEARCH_H
 
 #include "main.h"
-#include "gui.h"
-#include "page.h"
 
 GList *find_ptr, *find_ptr_head;
 GList *lmatches, *rmatches;
 
-void find_prev( GtkWidget *findbar );
+void 
+find_prev( GtkWidget *findbar );
 
-void find_next( GtkWidget *findbar );
+void 
+find_next( GtkWidget *findbar );
 
-void search_N( GtkWidget *findbar );
+void 
+search_N( GtkWidget *findbar );
 
-void search_n( GtkWidget *findbar );
+void 
+search_n( GtkWidget *findbar );
 
-void find_text_cb( GtkWidget *widget, gpointer user_data );
+void 
+find_text_cb( GtkWidget *widget, gpointer user_data );
 
-void find_exit_cb( GtkWidget *widget, gpointer user_data );
+void 
+find_exit_cb( GtkWidget *widget, gpointer user_data );
 
 #endif /* SEARCH_H */

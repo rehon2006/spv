@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -23,10 +23,15 @@
 #include <poppler.h>
 #include <assert.h>
 #include <string.h>
-
+  
 #include "list.h"
 #include "zoom.h"
-
+#include "note.h"
+#include "highlight.h"
+#include "page.h"
+#include "pdf.h"
+#include "gui.h"
+  
 void
 zoom_in_cb(GtkWidget* widget, gpointer data) {
  
@@ -67,7 +72,9 @@ void zoom(enum mode mode){
   
   zoom_factor = zoom_factor + 1.0;
   
-  gtk_window_resize(GTK_WINDOW(win), (int)(page_width*zoom_factor)+(int)(zoom_factor)*10+10, (int)(page_height*zoom_factor)+80);
+  gtk_window_resize( GTK_WINDOW(win), 
+                     (int)(page_width*zoom_factor)+(int)(zoom_factor)*10+10, 
+                     (int)(page_height*zoom_factor)+80);
   
  }
  else if( mode == ZOOM_OUT ){
@@ -91,11 +98,14 @@ void zoom(enum mode mode){
  }
  else if( mode == ZOOM_WIDTH ){
   
-  if( dual_page_mode )
+  if( dual_page_mode ){
+   
+   #ifdef __APPLE__
+   page_change();
+   #endif
+   
    return;
-  
-  GdkScreen *screen = gdk_screen_get_default ();
-  gint screen_width = gdk_screen_get_width(screen);
+  }
   
   double width_zf;
  
@@ -105,12 +115,12 @@ void zoom(enum mode mode){
   #if GTK_CHECK_VERSION(3,18,10)
   width_zf = (sw_alloc.width - 2)/page_width;
   #else
-  if(screen_width == 1366)
-   width_zf = (sw_alloc.width - 2 - 12 )/page_width;
-  else
-   width_zf = (sw_alloc.width - 2)/page_width;
+  width_zf = (sw_alloc.width - 2 - 12 )/page_width;
   #endif
   
+  if(zoom_factor < 0)
+   zoom_factor = width_zf;
+ 
   GtkAdjustment *hadj;
 
   hadj = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
@@ -148,9 +158,6 @@ void zoom(enum mode mode){
    if(!TOOL_BAR_VISIBLE){
   
     if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(full_screenMi) ) ){
-    
-     GdkScreen *screen = gdk_screen_get_default ();
-     int screen_height = gdk_screen_get_height(screen);
     
      height_offset = ( screen_height - 2 - da_height )/2;
     
@@ -196,9 +203,6 @@ void zoom(enum mode mode){
    
    return;
   } // end of if( dual_page_mode )
-  
-  GdkScreen *screen = gdk_screen_get_default ();
-  gint screen_height = gdk_screen_get_height(screen);
  
   double width_zf;
  
@@ -262,193 +266,10 @@ void zoom(enum mode mode){
   else
    zoom_factor = width_zf;
   
- }
- if( mode == DUAL_PAGE ){
-  
-  gtk_widget_show(ldraw_area);
+ }// end of else if( mode == ZOOM_HEIGHT )
  
-  if(lpage){
-   g_object_unref (G_OBJECT (lpage));
-   lpage = NULL;
-  }
- 
-  GdkScreen *screen = gdk_screen_get_default ();
-  char tmp_zf[10];
- 
-  if(page_width >= page_height)
-   sprintf(tmp_zf, "%.3f", ( (gdk_screen_get_width(screen)+1 )/2.0/ page_width));
-  else{
-  
-   #if GTK_CHECK_VERSION(3,18,10)
-   sprintf(tmp_zf, "%.3f", ( (gdk_screen_get_width(screen)-4 )/2.0/ page_width));
-   #else
-   sprintf(tmp_zf, "%.3f", ( (gdk_screen_get_width(screen)-18 )/2.0/ page_width));
-   #endif
-  }
- 
-  double width_zf = atof(tmp_zf);
- 
-  if(zoom_factor == width_zf)
-   return;
-  else
-   zoom_factor = width_zf;
+ page_setup(&surface, &da_selection_region, draw_area, current_nc);
 
-  if( current_page_num == poppler_document_get_n_pages(doc)-1 ){
-   current_page_num--;
-   lpage = poppler_document_get_page(doc, current_page_num);
-  }else
-   lpage = poppler_document_get_page(doc, current_page_num);
-  
-  if(lsurface)
-   cairo_surface_destroy (lsurface);
- 
- }
- 
- //common part
- if( selection_surface ){
- 
-  cairo_surface_destroy (selection_surface);
-  selection_surface = NULL;
-  
-  gtk_widget_queue_draw (draw_area); 
- }
- 
- gint width, height;
-
- width = (gint)((page_width*zoom_factor)+0.5);
- height = (gint)((page_height*zoom_factor)+0.5);
-
- if(surface)
-  cairo_surface_destroy (surface);
-  
- if(cr)
-  cairo_destroy (cr);
- 
- surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
-
- cr = cairo_create(surface);
-
- cairo_scale(cr, zoom_factor, zoom_factor);
-
- if(page == NULL){
-  gint page_num = poppler_document_get_n_pages(doc);
-   
-  if(current_page_num > page_num-1) 
-   current_page_num = page_num-1;
-   
-  page = poppler_document_get_page(doc, current_page_num);
- }
-
- poppler_page_render(page, cr);
- 
- if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
-   
-  cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
-  cairo_set_source_rgb (cr, 1., 1., 1.);
-  cairo_paint (cr);
-   
-  cairo_set_operator (cr, CAIRO_OPERATOR_DIFFERENCE); 
-  cairo_set_source_rgb (cr, 1., 1., 1.);
-   
- }
- else{
-  
-  cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
-
-  if(PDF_BACKGROUND_COLOR_CHANGED)
-   cairo_set_source_rgb (cr, background_color[0], background_color[1], background_color[2]);
-  else
-   cairo_set_source_rgb (cr, 1., 1., 1.);
-    
- }
-  
- cairo_paint (cr);
- 
- PopplerRectangle area = { 0, 0, 0, 0 };
- 
- area.x2 = width;
- area.y2 = height;
-  
- if(da_selection_region){
-  cairo_region_destroy(da_selection_region);
-  
-  da_selection_region = poppler_page_get_selected_region (page,
-                                                          zoom_factor,
-                                                          POPPLER_SELECTION_GLYPH,
-                                                          &area);
- 
- }
-  
- gtk_widget_set_size_request (draw_area, width, height);
- 
- da_width = width;
- da_height = height;
-  
- gtk_widget_queue_draw (draw_area);
-  
- if( page ){
-  g_object_unref (G_OBJECT (page));
-  page = NULL;
- }
-
- gtk_layout_set_size (GTK_LAYOUT(layout), width, height);
- 
- GdkRGBA color;
-  
- struct list_head *tmp;
- 
- if( current_nc ){ 
- 
-  list_for_each(tmp, &current_nc->HR_HEAD){
-
-   struct highlight_region *tmp1;
-   tmp1= list_entry(tmp, struct highlight_region, list);
-   
-   char *rgb = (char*)malloc(8);
-   sprintf(rgb, "#%s", tmp1->color_name);
-
-   gdk_rgba_parse(&color, rgb);
- 
-   if ( gtk_check_menu_item_get_active( GTK_CHECK_MENU_ITEM(inverted_colorMi) ) ){
-     
-    cairo_set_source_rgb (cr, 1, 1 , 1);
-    cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
-    
-    cairo_rectangle (cr, tmp1->x,
-                         tmp1->y, 
-                         tmp1->width,
-                         tmp1->height);
-      
-    cairo_fill (cr);
-      
-   }
-   
-   cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);  
-
-   cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-    
-   free(rgb);
-   
-   cairo_rectangle (cr, tmp1->x,
-                        tmp1->y, 
-                        tmp1->width,
-                        tmp1->height);
-   
-   cairo_fill (cr);
-   
-  }//list_for_each(tmp, &HR_HEAD
-  
- }
- 
- gtk_widget_queue_draw (draw_area);
-  
- if( find_ptr ){
-  invert_search_region();
- }
- 
- //common part
- //***********
- 
  if( mode == ZOOM_IN ){
  
   if(mode != ZOOM_IN){
