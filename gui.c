@@ -663,11 +663,12 @@ void full_screen_cb(void){
   
   pre_sw_height = sw_alloc.height;
   
-  if(!dual_page_mode)
+  if(!dual_page_mode){
    if( win_alloc.height > da_height ){
     zoom(ZOOM_HEIGHT);
    }
-  
+  } 
+
   full_screen = TRUE;
   
   if( dual_page_mode && dual_page_mode != 0 ){
