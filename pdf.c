@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2020 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -85,42 +85,61 @@ void init_pdf( char *path ){
  background_color[1] = 237/255.0;
  background_color[2] = 204/255.0;
  
- GFile *file= g_file_new_for_commandline_arg(path);
- 
- doc = poppler_document_new_from_gfile(file, NULL, NULL, &err);
- 
- if (!doc) {
+ if( path ){
   
-  g_object_unref(err);
+  char *npch = strrchr(path, '.');
   
-  exit(2);
- }
+  if( strcmp(npch, ".note") ){
+  
+   GFile *file= g_file_new_for_commandline_arg(path);
  
- char *pch, *ppch;
+   doc = poppler_document_new_from_gfile(file, NULL, NULL, &err);
  
- #ifdef _WIN32
- pch = strrchr(path, '\\');
- ppch = strchr(path, '\\');
- #else
- pch = strrchr(path, '/');
- ppch = strchr(path, '/');
- #endif
+   if (!doc) {
+  
+    g_object_unref(err);
+    printf("It's not a regulat pdf file");
+    exit(2);
+   }
+  
+  }
+  else
+   doc = NULL;
+  
+  
+  char *pch, *ppch;
  
- *(pch) = '\0';
+  #ifdef _WIN32
+  pch = strrchr(path, '\\');
+  ppch = strchr(path, '\\');
+  #else
+  pch = strrchr(path, '/');
+  ppch = strchr(path, '/');
+  #endif
+ 
+  *(pch) = '\0';
 
- file_path = (gchar *)malloc(strlen(ppch)+1);
+  file_path = (gchar *)malloc(strlen(ppch)+1);
  
- strcpy(file_path, ppch);
+  strcpy(file_path, ppch);
  
- #ifdef _WIN32
- *(pch) = '\\';
- #else
- *(pch) = '/';
- #endif
+  #ifdef _WIN32
+  *(pch) = '\\';
+  #else
+  *(pch) = '/';
+  #endif
  
- file_name = (gchar *)malloc(strlen(pch+1)+1);
+  file_name = (gchar *)malloc(strlen(pch+1)+1);
   
- strcpy(file_name, pch+1);
+  strcpy(file_name, pch+1);
+ 
+ }
+ else{
+  
+  doc = NULL;
+  file_name = NULL;
+  
+ }
  
  areas = areas_ptr = NULL;
  

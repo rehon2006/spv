@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2020 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,6 +30,8 @@ void zoom_width_cb(GtkWidget* widget, gpointer data);
 
 void zoom_height(void);
 void zoom_height_cb(GtkWidget* widget, gpointer data);
+
+void pinch_zoom(void);
 
 void zoom(enum mode mode);
 

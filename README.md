@@ -1,7 +1,7 @@
 Simple PDF Viewer
 =================
 
-SPV is a simple PDF viewer based on GTK3 and Poppler, and is available for Linux, Mac and Windows. It supports text highlight, comments adding/removing, and so on. These functionalities do not modify PDF files, and related information is saved in a note file.
+SPV is a simple PDF viewer based on GTK3 and Poppler, and is available for Linux, Mac, ChromeOS (with Crostini support) and Windows. It supports text highlight, comments adding/removing, and so on.
 
 Features
 -----
@@ -11,6 +11,9 @@ Features
 * Invert and change background color of all pages
 * Change font, font color and background color of comments
 * Zoom in, Zoom out, Zoom to height and Zoom to Width
+* Add/Remove blank pages
+* Create blank file
+* Save as new PDF file
 
 Requirements
 -----
@@ -21,9 +24,9 @@ Poppler version 0.24.5 with glib bindings or higher ( http://poppler.freedesktop
 Test Platforms
 -----
 * ### Ubuntu  
-* Ubuntu version : Ubuntu 14.04.5 LTS  
-* gtk+-3.0 version : 3.12.2  
-* poppler-glib version : 0.24.5  
+* Ubuntu version : Ubuntu 16.04.6 LTS  
+* gtk+-3.0 version : 3.18.9  
+* poppler-glib version : 0.41.0  
 ```
       sudo apt-get install libgtk-3-dev libpoppler-glib-dev
 ```
@@ -35,12 +38,19 @@ Test Platforms
       brew install gtk+3 poppler gnome-icon-theme
 ```
 
-* ### Windows (under Msys2 32bit)
-* Windows version : Version 1607 Build 14393  
-* gtk+-3.0 version : 3.22.10 
-* poppler-glib version : 0.52.0 
+* ### Windows (under Msys2 64bit)
+* Windows version : Version 1903 
+* gtk+-3.0 version : 3.24.13 
+* poppler-glib version : 0.83.0 
 ```
-      pacman -S mingw-w64-i686-gtk3 mingw-w64-i686-poppler
+      pacman -S mingw-w64-x86_64-gtk3 mingw-w64-x86_64-poppler
+```
+* ### ChromeOS
+* version : 
+* gtk+-3.0 version : 3.18.9  
+* poppler-glib version : 0.41.0  
+```
+      sudo apt-get install libgtk-3-dev libpoppler-glib-dev
 ```
 
 Build
@@ -50,12 +60,17 @@ Build
 ```  
 Usage
 -----
+Open PDF file or note file (for blank file)
 ```
      ./spv [file name]  
 ```  
-or  
+or (Select PDF File) 
 ``` 
      ./spv
+```
+or (Create Blank File)
+```
+     ./spv -b
 ```
 
 Copy and paste text
@@ -92,36 +107,25 @@ Ctrl+w | Zoom to width
 Ctrl+h | Zoom to height 
 Ctrl+z | Switch mode (text selection mode [S], text highlight mode [H] and erase text highlight mode [E]) 
 Ctrl+d | Enter/Leave dual-page mode 
+Shift+d | Delete current blank page
 F11 | Enter/Leave full-screen mode (Only for Linux and Windows) 
 Shift+c | Change color of highlight regions
-Shift+b | Change background color of all pages
+Ctrl+Shift+b | Change background color of all pages
+Ctrl+b | Insert blank page after current page
+Shift+b | Insert blank page before current page
 Ctrl+c | Copy selected text 
-Ctrl+v | Show/Hide toolbar 
 Ctrl+x | Invert background color of all pages
-Ctrl + Mouse Scroll Up | Zoom in 1x 
-Ctrl + Mouse Scroll Down | Zoom out 1x 
 number+P | Go to page [number] (e.g. 11P, go to page 11) 
 Right-arrow key | Go to next page 
 Left-arrow key | Go to previous page 
 ESC | Terminate text search, go to text selection mode or leave full-screen mode 
 
-Touchpad Gesture 
---------------
-
-### Swipe 
-
-Swipe left or right with two fingers to go to previous or next page (Note: horizontal scrolling support is necessary).  
-
-### Pinch Zoom 
-
-To zoom in or out page, spread or pinch two fingers. This feature is only available in Windows and touchpad with multi-touch support is necessary.  
-
-Note file & Comment 
+Note File & Comment 
 ------------
 
-A note file will be created after closing SPV or pressing Ctrl+s. The note file contains not only information about comments and highlight regions, but also information like last visited page, setting of inverting color and dual-page mode, comment property for this PDF file, and so on.
+A note file will be created after closing SPV or pressing Ctrl+s. It contains not only information about comments and highlight regions, but also information like last visited page, setting of inverting color and dual-page mode, comment property for this PDF file, and so on.
 
-If you want to manipulate a comment, just click the right mouse button on a comment. A dialog will show up and you can edit the content of this comment, delete it or change the property which includes font, font color and background color.
+If you want to edit a comment, just click the right mouse button on a comment. A dialog will show up and you can edit the content of this comment, delete it or change the property which includes font, font color and background color.
 
 SPV also allows user to save comments as a comment file, which is a plain text file containing only string part of all comments. 
 
@@ -129,3 +133,4 @@ Changing Background Color For All Pages
 ------------
 
 There are three ways to change background color for all pages: invert background color, use default color #C7EDCC or select a new one.
+

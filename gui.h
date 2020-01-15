@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2020 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -23,6 +23,14 @@
 GtkWidget* win;
 GtkWidget *scrolled_window;
 
+GtkWidget *paned;
+
+//textview for page comment
+GtkWidget *tview;
+GtkTextBuffer *tbuffer;
+GtkWidget *tsw;
+//textview for page comment
+
 GtkWidget *toolbar;
 
 GtkToolItem *highlight_color;
@@ -44,6 +52,9 @@ gint bindex;
 GtkTextIter cur_cursor, pre_cursor;
 gint pre_str_pos, str_pos;
 //for showing cursor when editing a comment
+
+GtkTextIter tp_siter, tp_eiter;
+gint sp, ep;
 
 GtkClipboard *clipboard;
 
@@ -80,6 +91,30 @@ int scroll_count;
 guint scroll_time;
 int scroll_zoom;
 
+static const char dark_theme[] = 
+#if GTK_CHECK_VERSION(3,20,0)
+"textview text {"
+" background-color: black;"
+" color: white"
+"}"
+"textview {"
+" font-size: 25px;"
+"}"
+#else
+"GtkTextView {"
+" background: black;"
+//" background: rgba(255,255,0,0);" //transparent background
+" color: white;"
+" font-size: 25px;"
+"}"
+#endif
+"*:selected{"
+" background-color: white;"
+" color: black;"
+"}";
+
+gboolean comment_buffer_changed;
+
 GtkWidget *vbox;
 
 GtkWidget *findbar;
@@ -89,12 +124,15 @@ GtkWidget *menubar;
 GtkWidget *fileMenu;
 GtkWidget *editMenu;
 GtkWidget *viewMenu;
+
    
 GtkWidget *goMenu;
 GtkWidget *modeMenu;
 GtkWidget *noteMenu;
 
 GtkWidget *fileMi;
+//GtkWidget *openMi;
+GtkWidget *saveasMi;
 GtkWidget *quitMi;
 
 GtkWidget *editMi;
@@ -110,13 +148,14 @@ GtkWidget *zoomoutMi;
 GtkWidget *zoomwidthMi;
 GtkWidget *zoomheightMi;
 
-GtkWidget *hide_toolbarMi;
+//GtkWidget *hide_toolbarMi;
 GtkWidget *change_background_colorMi;
 GtkWidget *dual_pageMi;
 GtkWidget *full_screenMi;
 GtkWidget *inverted_colorMi;
 GtkWidget *cursor_modeMi;
 GtkWidget *continuous_modeMi;
+GtkWidget *page_commentMi;
 
 GtkWidget *goMi;
 GtkWidget *nextpageMi;
@@ -131,6 +170,10 @@ GtkWidget *erase_text_highlightMi;
 GtkWidget *noteMi;
 
 GtkWidget *add_commentMi;
+//GtkWidget *add_blank_pageMi;
+GtkWidget *insert_bp_beforeMi;
+GtkWidget *insert_bp_afterMi;
+GtkWidget *del_blank_pageMi;
 GtkWidget *save_noteMi;
 GtkWidget *save_commentMi;
 
@@ -159,10 +202,11 @@ gboolean KEY_BUTTON_SEARCH; //true for keyboard search, false for button search
 
 GtkAccelGroup *accel_group;
 
-int sa_count;
-                     
-void
-toggle_hide_toolbar(void);
+int delta_t;
+double delta_y;
+                   
+//void
+//toggle_hide_toolbar(void);
 
 void
 on_destroy(GtkWidget* widget, gpointer data);

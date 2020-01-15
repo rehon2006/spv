@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2020 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,8 +30,63 @@
 #include "list.h"
 #include "highlight.h"
 #include "pdf.h"
-  
+#include "zoom.h"
+
 static void dual_page(void){
+ 
+ rcurrent_pe = current_pe->next;
+ 
+ if( !rcurrent_pe ){
+ 
+  rcurrent_pe = current_pe;
+  current_pe = current_pe->prev;
+  
+ }
+   
+ current_nc = current_pe->curr_nc;
+ rcurrent_nc = rcurrent_pe->curr_nc;
+ 
+ current_bp = current_pe->curr_bp;
+ rcurrent_bp = rcurrent_pe->curr_bp;
+ 
+ if( current_bp || rcurrent_bp )
+  blank_page = TRUE;
+ 
+ char *title_str = (char*)malloc(100);
+  
+ if( !blank_page ){
+  sprintf(title_str, "%s page %d/%d",file_name, current_pe->p_page+1,poppler_document_get_n_pages(doc));
+ }
+ else{
+  
+  if( !current_pe->curr_bp ){
+   sprintf(title_str, "%s page %d/%d",file_name, current_pe->p_page+1,poppler_document_get_n_pages(doc));
+  }
+  else{
+  
+   if( doc ){
+    sprintf(title_str, "%s page %d-%d/%d",file_name, current_pe->p_page+1,current_bp->page_num, poppler_document_get_n_pages(doc));
+   }
+   else{
+    
+    gint page_num = current_pe->curr_nc->BP_TAIL->page_num;
+    
+    if(file_name)
+     sprintf(title_str, "%s page %d/%d",
+      file_name, current_pe->curr_bp->page_num, page_num);
+    else
+     sprintf(title_str, "Untitled page %d/%d",
+      current_pe->curr_bp->page_num, page_num);
+        
+   }
+    
+  }
+  
+ }
+ 
+ gtk_window_set_title(GTK_WINDOW(win), title_str);
+ 
+ free(title_str);
  
  gtk_widget_show(ldraw_area);
  
@@ -58,25 +113,6 @@ static void dual_page(void){
  //left page
  page_setup(&lsurface, &lda_selection_region, ldraw_area, current_nc);
  
- struct note_cache* nc_tmp = NULL;
- 
- if( note_cache )
-  nc_tmp = note_cache->next;
- 
- while( nc_tmp ){
-  
-  if( nc_tmp->page_num == current_page_num +2 ){
-   rcurrent_nc = nc_tmp;
-   break;
-  }
-  else{
-   rcurrent_nc = NULL;
-  }
-  
-  nc_tmp = nc_tmp->next;
-  
- }
- 
  //right page
  page_setup(&surface, &da_selection_region, draw_area, rcurrent_nc);
  
@@ -86,18 +122,94 @@ void dual_page_cb(void){
  
  if ( dual_page_mode ){
  
-  gint page_num = poppler_document_get_n_pages(doc);
+  if( doc ){
   
-  if( page_num > 1 ){
+   gint page_num = poppler_document_get_n_pages(doc);
+  
+   if( page_num > 1 ){
    
-   dual_page_mode = TRUE;
+    if(blank_page){
+    
+     if( current_bp ){
+      if( current_bp->next ){
+       if( current_nc->page_num < page_num)
+        current_page_num--;
+      }
+     }
+    
+    }
    
-   dual_page();
+    dual_page();
    
+   }
+  
   }
+  else{
+   
+   //cannot enter dual-page mode with one page
+   if( current_pe->prev || current_pe->next )
+    dual_page();
+  
+  }
+  
  }
  else{ // exit dual-page mode
- 
+  
+  if( !current_bp && rcurrent_bp ){
+   
+   da_selection_region = lda_selection_region;
+   lda_selection_region = NULL;
+   
+   if( blank_page ){
+    blank_page = FALSE;
+    current_page_num++;
+   }
+   
+  }
+  else if( current_bp && rcurrent_bp ){
+   
+   if(doc)
+    current_page_num++;
+  
+  }
+  else if( current_bp && !rcurrent_bp ){
+   
+   current_page_num = current_nc->page_num;
+   
+  }
+  
+  struct bp_comment *cmt;
+  
+  //hide comments from previous blank page
+  if( current_bp ){
+  
+    cmt = current_bp->comment;
+     
+    while( cmt ){
+    
+     gtk_widget_hide(cmt->comment->comment);
+     cmt = cmt->next;
+      
+    }
+   }
+   
+   if( rcurrent_bp ){
+  
+    cmt = rcurrent_bp->comment;
+     
+    while( cmt ){
+    
+     gtk_widget_hide(cmt->comment->comment);
+     cmt = cmt->next;
+      
+    }
+    
+    rcurrent_bp = NULL;
+    
+   }
+   
+   //hide comments from previous blank page
+  
   if(lpage){
    g_object_unref (G_OBJECT (lpage));
    lpage = NULL;
@@ -137,127 +249,136 @@ void dual_page_cb(void){
    rcurrent_nc = NULL;
   
   }
-   
+  
  }
  
 }
 
-void page_change(void){
+void page_change( void ){
  
- gint width, height;
-
  char *page_str = (char*)malloc(100);
  
- if( mode == TEXT_SELECTION )
-  sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[S]");
- else if ( mode == TEXT_HIGHLIGHT )
-  sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[H]");
- else if ( mode == ERASE_TEXT_HIGHLIGHT )
-  sprintf(page_str, "%s page %d/%d %s",file_name, current_page_num+1, poppler_document_get_n_pages(doc), "[E]");
- else
-  sprintf(page_str, "%s page %d/%d",file_name, current_page_num+1, poppler_document_get_n_pages(doc));
+ if(!blank_page){
  
- gtk_window_set_title(GTK_WINDOW(win), page_str);
+  sprintf(page_str, "%s page %d/%d",
+   file_name, current_pe->p_page+1, poppler_document_get_n_pages(doc));
  
- free(page_str);
- 
- struct list_head *tmp;
- struct note *cm_entry;
- 
- if( current_nc ){
+  gtk_window_set_title(GTK_WINDOW(win), page_str);
   
-  list_for_each(tmp, &current_nc->CM_HEAD){
-
-   cm_entry = list_entry(tmp, struct note, list);
+  if( dual_page_mode ){
    
-   if( gtk_widget_is_visible(cm_entry->comment) ){
-    gtk_widget_hide(cm_entry->comment);
+   if( !rcurrent_pe ){
+    rcurrent_pe = current_pe->next;
    }
    
-  }//list_for_each(tmp, &current_nc->CM_HEAD)
-  
- }
- 
- if( rcurrent_nc ){
-  
-  list_for_each(tmp, &rcurrent_nc->CM_HEAD){
+   //left page
 
-   cm_entry = list_entry(tmp, struct note, list);
+   current_nc = current_pe->curr_nc;
    
-   if( gtk_widget_is_visible(cm_entry->comment) ){
-    gtk_widget_hide(cm_entry->comment);
-   }
+   page_setup(&lsurface, &lda_selection_region, ldraw_area, current_nc);
    
-  }//list_for_each(tmp, &current_nc->CM_HEAD)
-  
- }
- 
- //hide previous page's comment
- 
- struct note_cache* nc_tmp = NULL;
- 
- if( note_cache )
-  nc_tmp = note_cache->next;
- 
- while( nc_tmp ){
-  
-  if( current_page_num == nc_tmp->page_num -1 ){
-   current_nc = nc_tmp;
-   break;
-  }
-  else{
-   current_nc = NULL;
-  }
- 
-  nc_tmp = nc_tmp->next;
-  
- }
- //get current_nc
- 
- //get rcurrent_nc
- if( note_cache )
-  nc_tmp = note_cache->next;
-  
- while( nc_tmp ){
+   //right page
    
-  if( nc_tmp->page_num == current_page_num +2 ){
-   rcurrent_nc = nc_tmp;
-   break;
-  }
-  else{
-   rcurrent_nc = NULL;
-  }
- 
-  nc_tmp = nc_tmp->next;
-  
- }
-  
- //get rcurrent_nc
- 
- if( dual_page_mode ){
-  
-  //left page
-  page_setup(&lsurface, &lda_selection_region, ldraw_area, current_nc);
-  
-  //right page
-  page_setup(&surface, &da_selection_region, draw_area, rcurrent_nc); 
-  
-  if( current_nc )
-   display_comment(&current_nc->CM_HEAD);
-  
-  if( rcurrent_nc )
+   rcurrent_nc = rcurrent_pe->curr_nc;
+   
+   page_setup(&surface, &da_selection_region, draw_area, rcurrent_nc);
+   
    display_comment(&rcurrent_nc->CM_HEAD);
+  
+  }
+  else{
+  
+   current_nc = current_pe->curr_nc;
+   
+   page_setup(&surface, &da_selection_region, draw_area, current_nc);
+   
+  }
+  
+  display_comment(&current_nc->CM_HEAD);
   
  }
  else{
- 
-  page_setup(&surface, &da_selection_region, draw_area, current_nc);
   
-  if(current_nc)
-   display_comment(&current_nc->CM_HEAD);
+  //blank page
+  
+  if( !dual_page_mode ){
+   
+   if(doc)
+    sprintf(page_str, "%s page %d-%d/%d",
+    file_name, current_page_num+1, current_pe->curr_bp->page_num, poppler_document_get_n_pages(doc));
+   else{
+    
+    gint page_num = current_pe->curr_nc->BP_TAIL->page_num;
+    
+    if(file_name)
+     sprintf(page_str, "%s page %d/%d",
+      file_name, current_pe->curr_bp->page_num, page_num);
+    else
+     sprintf(page_str, "Untitled page %d/%d",
+      current_pe->curr_bp->page_num, page_num);
+    
+   }
+   
+   gtk_window_set_title(GTK_WINDOW(win), page_str);
+   
+   current_bp = current_pe->curr_bp;
+   
+   page_setup(&surface, NULL, draw_area, NULL);
+   
+   display_comment(NULL);
+   
+  }
+  else{
+   
+   if( doc ){
+    
+    if(current_bp)
+     sprintf(page_str, "%s page %d-%d/%d",
+      file_name, current_pe->p_page+1, current_pe->curr_bp->page_num, poppler_document_get_n_pages(doc));
+    else
+     sprintf(page_str, "%s page %d/%d",
+      file_name, current_pe->p_page+1, poppler_document_get_n_pages(doc));
+    
+   }
+   else{
+    
+    gint page_num = current_pe->curr_nc->BP_TAIL->page_num;
+    
+    if(file_name)
+     sprintf(page_str, "%s page %d/%d",
+      file_name, current_pe->curr_bp->page_num, page_num);
+    else
+     sprintf(page_str, "Untitled page %d/%d",
+      current_pe->curr_bp->page_num, page_num);
+   
+   }
+   
+   gtk_window_set_title(GTK_WINDOW(win), page_str);
+   
+   if(current_bp){
+    page_setup(&lsurface, NULL, ldraw_area, NULL);
+    display_comment(NULL);
+   }
+   else{
+    page_setup(&lsurface, &lda_selection_region, ldraw_area, current_nc);
+    display_comment(&current_nc->CM_HEAD);
+   }
+   
+   if(rcurrent_bp){
+    page_setup(&surface, NULL, draw_area, NULL);
+    display_comment(NULL);
+   }
+   else{
+    page_setup(&surface, &da_selection_region, draw_area, rcurrent_nc);
+    display_comment(&rcurrent_nc->CM_HEAD);
+   }
+   
+  }
   
  }
  
+ free(page_str);
+
 }
 
 void
@@ -267,46 +388,147 @@ next_page_cb(GtkWidget* widget, gpointer data) {
 
 }
 
-void
-prev_page(void) {
+void prev_page(void){
  
- gint page_num = poppler_document_get_n_pages(doc);
- 
- if ( dual_page_mode ){ //dual-page mode
+ if( current_pe->curr_nc ){
   
-  if( current_page_num > 0 ){
-   current_page_num = current_page_num -2;
+  struct list_head *tmp;
+  struct note *cm_entry;
+  
+  list_for_each(tmp, &current_pe->curr_nc->CM_HEAD){
+
+   cm_entry = list_entry(tmp, struct note, list);
+   
+   gtk_widget_hide(cm_entry->comment);
+  
   }
-
-  if (current_page_num == page_num)
-   current_page_num = current_page_num -2;
   
-  if(current_page_num == -1)
-   current_page_num = 0;
- 
- }else{ //single-page mode
-  
-  if(current_page_num > 0)
-   current_page_num--;
-
-  if (current_page_num == page_num)
-   current_page_num--;
- 
  }
  
-  if( current_page_num >= 0 ){
+ if( blank_page ){
   
-   GtkAdjustment *hadj, *vadj;
-
-   hadj = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
-   vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
+  if( current_pe->curr_bp ){
    
-   gtk_adjustment_set_value(hadj, gtk_adjustment_get_upper(hadj) - gtk_adjustment_get_page_size(hadj) );
-  
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-
-   page_change();
+   struct bp_comment *cmt = current_pe->curr_bp->comment;
+     
+   while( cmt ){
+      
+    gtk_widget_hide(cmt->comment->comment);
+    cmt = cmt->next;
+      
+   }
+   
   }
+  
+ }
+ 
+ if( !dual_page_mode ){
+  
+  if(current_pe->prev){
+   
+   current_pe = current_pe->prev;
+   
+   if( current_pe->curr_bp ){
+   
+    blank_page = TRUE;
+    
+    if( da_selection_region ){
+     cairo_region_destroy(da_selection_region);
+     da_selection_region = NULL;
+    }
+    
+   }
+   else{
+    current_bp = NULL;
+    blank_page = FALSE;
+   }
+   
+  }
+  
+ }
+ else{
+  
+  if( rcurrent_pe->curr_nc ){
+  
+   struct list_head *tmp;
+   struct note *cm_entry;
+  
+   list_for_each(tmp, &rcurrent_pe->curr_nc->CM_HEAD){
+
+    cm_entry = list_entry(tmp, struct note, list);
+   
+    gtk_widget_hide(cm_entry->comment);
+  
+   }
+  
+  }
+  
+  if( blank_page ){
+  
+   if( rcurrent_pe->curr_bp ){
+   
+    struct bp_comment *cmt = rcurrent_pe->curr_bp->comment;
+     
+    while( cmt ){
+      
+     gtk_widget_hide(cmt->comment->comment);
+     cmt = cmt->next;
+      
+    }
+   
+   }
+  
+  }
+  
+  if(current_pe->prev){
+   
+   if( current_pe->prev->prev ){
+    
+    //  p10, p11, p12, p13
+    //P            c    r
+    //N  c    r
+     
+    rcurrent_pe = current_pe->prev;
+    current_pe = rcurrent_pe->prev;
+   }
+   else{
+     
+    //  NULL, p1, p2, p3
+    //P            c   r
+    //N        c   r
+     
+    rcurrent_pe = current_pe;
+    current_pe = current_pe->prev;
+     
+   }
+    
+  }
+  
+  if( current_pe->curr_bp || rcurrent_pe->curr_bp ){
+     
+   blank_page = TRUE;
+     
+   current_bp = current_pe->curr_bp;
+   rcurrent_bp = rcurrent_pe->curr_bp;
+     
+  }
+  else{
+     
+   blank_page = FALSE;
+   current_bp = rcurrent_bp = NULL;
+     
+  }
+  
+ }
+ 
+ current_page_num = current_pe->p_page;
+ 
+ current_nc = current_pe->curr_nc;
+ 
+ if( dual_page_mode )
+  rcurrent_nc = rcurrent_pe->curr_nc;
+ 
+ page_change();
  
 }
 
@@ -317,67 +539,187 @@ prev_page_cb(GtkWidget* widget, gpointer data) {
 
 }
 
-void
-next_page(void) {
+void next_page(void){
  
- gint page_num = poppler_document_get_n_pages(doc);
+ if( current_pe->curr_nc ){
+  
+  struct list_head *tmp;
+  struct note *cm_entry;
+  
+  list_for_each(tmp, &current_pe->curr_nc->CM_HEAD){
 
- if(current_page_num < page_num-1){
-  
-  if(dual_page_mode){
+   cm_entry = list_entry(tmp, struct note, list);
    
-   if( current_page_num +3 == page_num )
-    current_page_num++;
-   else if (current_page_num + 2 == page_num)
-    return;
-   else{ 
-    current_page_num = current_page_num + 2;
-   }
-  }else{
-  
-   current_page_num++;
-  
+   gtk_widget_hide(cm_entry->comment);
+   
   }
   
-  if( current_page_num < page_num ){
-
-   GtkAdjustment *hadj, *vadj;
-
-   hadj = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
-   vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
- 
-   gtk_adjustment_set_value(hadj, gtk_adjustment_get_page_size(hadj) - gtk_adjustment_get_upper(hadj));
-   
-   gtk_adjustment_set_value(vadj, gtk_adjustment_get_page_size(vadj) - gtk_adjustment_get_upper(vadj));
-   
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-  
-   page_change();
- 
-  }
-
  }
+ 
+ if( blank_page ){
+  
+  if( current_pe->curr_bp ){
+   
+   struct bp_comment *cmt = current_pe->curr_bp->comment;
+     
+   while( cmt ){
+      
+    gtk_widget_hide(cmt->comment->comment);
+    cmt = cmt->next;
+      
+   }
+   
+  }
+  
+ }
+ 
+ 
+ if( !dual_page_mode ){
+  
+  if(current_pe->next){
+   
+   current_pe = current_pe->next;
+   
+   if( current_pe->curr_bp ){
+   
+    blank_page = TRUE;
+    
+    if( da_selection_region ){
+     cairo_region_destroy(da_selection_region);
+     da_selection_region = NULL;
+    }
+    
+   }
+   else{
+    blank_page = FALSE;
+    current_bp = NULL;
+   }
+   
+  }
+  
+ }
+ else{
+  
+  //dual page mode
+  
+  if( rcurrent_pe->curr_nc ){
+  
+   struct list_head *tmp;
+   struct note *cm_entry;
+  
+   list_for_each(tmp, &rcurrent_pe->curr_nc->CM_HEAD){
+    
+    cm_entry = list_entry(tmp, struct note, list);
+   
+    gtk_widget_hide(cm_entry->comment);
+   
+   }
+  
+  }
+  
+  if( blank_page ){
+   
+   if( rcurrent_pe->curr_bp ){
+   
+    struct bp_comment *cmt = rcurrent_pe->curr_bp->comment;
+     
+    while( cmt ){
+     
+     gtk_widget_hide(cmt->comment->comment);
+     cmt = cmt->next;
+      
+    }
+   
+   }
+  
+  }
+  
+  if(rcurrent_pe->next){
+   
+   if(rcurrent_pe->next->next){
+     
+    //  p1,p2,p3 p4
+    //P  c  r
+    //N        c  r
+     
+    current_pe = rcurrent_pe->next;
+    rcurrent_pe = current_pe->next;
+    
+   }
+   else{
+      
+    //  p11,p12,p13 NULL
+    //P  c   r
+    //N      c   r
+      
+    current_pe = rcurrent_pe;
+    rcurrent_pe = rcurrent_pe->next;
+      
+   }
+   
+   if( current_pe->curr_bp || rcurrent_pe->curr_bp ){
+     
+    blank_page = TRUE;
+     
+    current_bp = current_pe->curr_bp;
+    rcurrent_bp = rcurrent_pe->curr_bp;
+     
+   }
+   else{
+     
+    blank_page = FALSE;
+    current_bp = rcurrent_bp = NULL;
+     
+   }
+    
+  }
+  
+ }
+ 
+ current_page_num = current_pe->p_page;
+ 
+ current_nc = current_pe->curr_nc;
+ 
+ if( dual_page_mode )
+  rcurrent_nc = rcurrent_pe->curr_nc;
+  
+ page_change();
+ 
 }
 
 void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region, GtkWidget *draw_area, struct note_cache *current_nc){
+ 
+ struct list_head *tmp;
  
  if( selection_surface ){
  
   cairo_surface_destroy (selection_surface);
   selection_surface = NULL;
   
-  gtk_widget_queue_draw (draw_area); 
+  gtk_widget_queue_draw (draw_area);
+  
  }
  
- if( !dual_page_mode ){
+ if( !dual_page_mode ){ //single page mode
   
-  if(page == NULL){
-   gint page_num = poppler_document_get_n_pages(doc);
+  if( blank_page ){
+   //set up blank page
    
-   if(current_page_num > page_num-1) 
-    current_page_num = page_num-1;
+   if(page){
+    g_object_unref (G_OBJECT (page));
+    page = NULL;
+   }
    
-   page = poppler_document_get_page(doc, current_page_num);
+  }
+  else{
+   
+   if(page == NULL){
+    
+    current_page_num = current_pe->p_page;
+    
+    page = poppler_document_get_page(doc, current_page_num);
+   
+   }
   }
   
  }
@@ -390,30 +732,45 @@ void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region,
     page = NULL;
    }
    
-   if( current_page_num == poppler_document_get_n_pages(doc)-1 ){
-    current_page_num--;
+   if( !blank_page ){
+    
+    current_page_num = current_pe->p_page;
+    
     page = poppler_document_get_page(doc, current_page_num);
-   }else
-    page = poppler_document_get_page(doc, current_page_num);
+    
+   }
+   else{
+    
+    if( !current_pe->curr_bp ){
+     
+     current_page_num = current_pe->p_page;
+    
+     page = poppler_document_get_page(doc, current_page_num);
+     
+    }
+    
+   }
    
   }
-  else {// right page
+  else{ //right page
    
-   gint page_num = poppler_document_get_n_pages(doc);
- 
    if(page){
     g_object_unref (G_OBJECT (page));
     page = NULL;
    }
- 
-   if( current_page_num+1 <= page_num-1 ){
-  
-    page = poppler_document_get_page(doc, current_page_num+1);
-  
+   
+   if( !blank_page ){
+    
+    page = poppler_document_get_page(doc, rcurrent_pe->p_page);
+    
    }
-   else if( current_page_num == page_num-1 ){
-    page = poppler_document_get_page(doc, current_page_num);
-   } 
+   else{
+    
+    if( !rcurrent_pe->curr_bp ){
+     page = poppler_document_get_page(doc, rcurrent_pe->p_page);
+    }
+    
+   }
    
   }
   
@@ -421,7 +778,8 @@ void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region,
  
  pre_page_width = page_width;
  
- poppler_page_get_size(page, &page_width, &page_height);
+ if(page)
+  poppler_page_get_size(page, &page_width, &page_height);
  
  GtkAllocation sw_alloc;
  gtk_widget_get_allocation(scrolled_window, &sw_alloc);
@@ -430,20 +788,59 @@ void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region,
  
  double awidth, aheight, bwidth, bheight;
   
- if( dual_page_mode ){  
- 
-  PopplerPage* apage = poppler_document_get_page(doc, current_page_num);
- 
+ if( dual_page_mode && doc ){
+  
+  PopplerPage* apage;
+  
+  if( current_page_num >= 0 ){
+   apage = poppler_document_get_page(doc, current_page_num);
+  }
+  else{
+   apage = poppler_document_get_page(doc, 0);
+  }
+  
   poppler_page_get_size(apage, &awidth, &aheight); 
- 
-  apage = poppler_document_get_page(doc, current_page_num+1);
+  
+  gint page_num = poppler_document_get_n_pages(doc);
+  
+  if( current_page_num >= 0 ){
+   if( current_page_num+1 == page_num )
+    apage = poppler_document_get_page(doc, current_page_num);
+   else
+    apage = poppler_document_get_page(doc, current_page_num+1);
+  }
+  else
+   apage = poppler_document_get_page(doc, 0);
   
   poppler_page_get_size(apage, &bwidth, &bheight); 
+  
+  if( awidth - bwidth < 1 )
+   bwidth = awidth;
+  else if( bwidth - awidth < 1 )
+   awidth = bwidth;
+  
+  if( aheight - bheight < 1 )
+   bheight = aheight;
+  else if( bheight - aheight < 1 )
+   aheight = bheight;
   
   g_object_unref (G_OBJECT (apage));
   apage = NULL;
   
  }
+ else{
+  
+  if( !doc ){
+   
+   //a4 size
+   awidth = bwidth = 595;
+   aheight = bheight = 842;
+   //a4 size
+   
+  }
+  
+ }
+ 
  
  if( !dual_page_mode ){
  
@@ -667,7 +1064,8 @@ void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region,
  
  }
  
- poppler_page_render(page, cr);
+ if(page)
+  poppler_page_render(page, cr);
  
  if ( invert_color ){
    
@@ -682,14 +1080,14 @@ void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region,
  else{
   
   cairo_set_operator (cr, CAIRO_OPERATOR_DARKEN);
-
+  
   if(PDF_BACKGROUND_COLOR_CHANGED)
    cairo_set_source_rgb (cr, background_color[0], background_color[1], background_color[2]);
   else
    cairo_set_source_rgb (cr, 1., 1., 1.);
     
  }
-  
+ 
  cairo_paint (cr);
  
  PopplerRectangle area = { 0, 0, 0, 0 };
@@ -697,63 +1095,68 @@ void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region,
  area.x2 = width;
  area.y2 = height;
  
- if(*da_selection_region){
-  cairo_region_destroy(*da_selection_region);
+ if( !blank_page ){
+  if(da_selection_region){//
+   
+   if(*da_selection_region){
+   
+    cairo_region_destroy(*da_selection_region);
+    
+   }
+   
+  }
+  
  }
  
  if( !dual_page_mode ){
-  *da_selection_region = poppler_page_get_selected_region (page,
-                                                           zoom_factor,
-                                                           POPPLER_SELECTION_GLYPH,
-                                                           &area);
- }
- else{ 
   
-  if( zoom_factor == azoom_factor || azoom_factor == 0.0 ){
-   *da_selection_region = poppler_page_get_selected_region (page,
-                                                            zoom_factor,
-                                                            POPPLER_SELECTION_GLYPH,
-                                                            &area);
+  if(page){
+   *da_selection_region = poppler_page_get_selected_region (
+    page, zoom_factor, POPPLER_SELECTION_GLYPH, &area);
   }
-  else{
-
-   if( azoom_factor < 0 ){ //left page
-    
-    if( draw_area == ldraw_area ){
-     *da_selection_region = poppler_page_get_selected_region (page,
-                                                              -azoom_factor,
-                                                              POPPLER_SELECTION_GLYPH,
-                                                              &area);
-    }
-    else{
-     *da_selection_region = poppler_page_get_selected_region (page,
-                                                              zoom_factor,
-                                                              POPPLER_SELECTION_GLYPH,
-                                                              &area);
-    }
-    
-   }
-   else{ // right page
-    
-    if( draw_area == ldraw_area ){
-     *da_selection_region = poppler_page_get_selected_region (page,
-                                                              zoom_factor,
-                                                              POPPLER_SELECTION_GLYPH,
-                                                              &area);
-    }
-    else{
-     *da_selection_region = poppler_page_get_selected_region (page,
-                                                              azoom_factor,
-                                                              POPPLER_SELECTION_GLYPH,
-                                                              &area);
-    }
-    
-   } 
-  
-  }
-  
  }
+ else{
  
+  if(page){
+  
+   if( zoom_factor == azoom_factor || azoom_factor == 0.0 ){
+    if( da_selection_region ){
+     *da_selection_region = poppler_page_get_selected_region (
+      page, zoom_factor, POPPLER_SELECTION_GLYPH, &area);
+    }
+   }
+   else{
+
+    if( azoom_factor < 0 ){ //left page
+    
+     if( draw_area == ldraw_area ){
+      *da_selection_region = poppler_page_get_selected_region (
+       page, -azoom_factor, POPPLER_SELECTION_GLYPH, &area);
+     }
+     else{
+      *da_selection_region = poppler_page_get_selected_region (
+       page, zoom_factor, POPPLER_SELECTION_GLYPH, &area);
+     }
+    
+    }//left page
+    else{ // right page
+    
+     if( draw_area == ldraw_area ){
+      *da_selection_region = poppler_page_get_selected_region (
+       page, zoom_factor, POPPLER_SELECTION_GLYPH, &area);
+     }
+     else{
+      *da_selection_region = poppler_page_get_selected_region (
+       page, azoom_factor, POPPLER_SELECTION_GLYPH, &area);
+     }
+    
+    }//right page
+  
+   }
+  
+  }//end of if(page)
+  
+ }
  
  if(!dual_page_mode)
   gtk_layout_set_size (GTK_LAYOUT(layout), width, height);
@@ -800,8 +1203,9 @@ void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region,
    
    if( draw_area != ldraw_area){  //right page
      
-    if( aheight > awidth )
+    if( aheight > awidth ){
      gtk_layout_move(GTK_LAYOUT(layout), draw_area,lda_alloc.width, 0);
+    }
     else{
       
      int height = ( sw_alloc.height - 2 - (int)(aheight*(zoom_factor) ))/2;
@@ -810,7 +1214,7 @@ void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region,
       height = 0;
       
      gtk_layout_move(GTK_LAYOUT(layout), draw_area,lda_alloc.width, height);
-      
+     
     }
      
    }
@@ -921,45 +1325,46 @@ void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region,
   page = NULL;
  }
  
- GdkRGBA color;
+ if( !blank_page ){
  
- struct list_head *tmp;
- struct highlight_region *cm_entry;
+  struct highlight_region *hr_entry;
  
- if( current_nc ){
-  
-  list_for_each(tmp, &current_nc->HR_HEAD){
+  if( current_nc ){
    
-   cm_entry = list_entry(tmp, struct highlight_region, list);
+   list_for_each(tmp, &current_nc->HR_HEAD){
+   
+    hr_entry = list_entry(tmp, struct highlight_region, list);
   
-   if( invert_color ){
+    if( invert_color ){
      
-    cairo_set_source_rgb (cr, 1, 1 , 1);
-    cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
+     cairo_set_source_rgb (cr, 1, 1 , 1);
+     cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
    
-    cairo_rectangle (cr, cm_entry->x,
-                         cm_entry->y, 
-                         cm_entry->width,
-                         cm_entry->height);
+     cairo_rectangle (cr, hr_entry->x,
+                          hr_entry->y, 
+                          hr_entry->width,
+                          hr_entry->height);
       
+     cairo_fill (cr);
+      
+    }
+   
+    cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
+   
+    cairo_set_source_rgb (cr, hr_entry->ce->color.red, 
+                              hr_entry->ce->color.green, 
+                              hr_entry->ce->color.blue);
+   
+    cairo_rectangle (cr, hr_entry->x,
+                         hr_entry->y, 
+                         hr_entry->width,
+                         hr_entry->height);
+   
     cairo_fill (cr);
-      
-   }
-   
-   cairo_set_operator(cr, CAIRO_OPERATOR_DARKEN);
-   
-   cairo_set_source_rgb (cr, cm_entry->ce->color.red, 
-                             cm_entry->ce->color.green, 
-                             cm_entry->ce->color.blue);
-   
-   cairo_rectangle (cr, cm_entry->x,
-                        cm_entry->y, 
-                        cm_entry->width,
-                        cm_entry->height);
-   
-   cairo_fill (cr);
     
-  }//list_for_each(tmp, &HR_HEAD
+   }//list_for_each(tmp, &HR_HEAD
+  
+  }
   
  }
  
@@ -968,5 +1373,5 @@ void page_setup(cairo_surface_t **surface, cairo_region_t **da_selection_region,
  if( find_ptr ){
   invert_search_region();
  }
-
+ 
 }

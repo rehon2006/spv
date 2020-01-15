@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 rehon2006, rehon2006@gmail.com
+ * Copyright (C) 2017-2020 rehon2006, rehon2006@gmail.com
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -47,7 +47,7 @@ void save_pref( void ){
  
  char *homedir = getenv("HOME");
 
- char* pref_home = (char*) malloc(strlen(homedir)+strlen("/.spv/")+1); // 9 = 1+length("/.spv")
+ char* pref_home = (char*) malloc(strlen(homedir)+strlen("/.spv/")+1);
  
  strcpy(pref_home,homedir);
  strcat(pref_home, "/.spv/");
@@ -103,9 +103,9 @@ void save_pref( void ){
                                              (int)(G_CM_BG_COLOR->color.blue*255),
                                              (int)(G_CM_BG_COLOR->color.alpha*255));
   
-  fprintf(pfile, "G:%s:%s:%s:%s:\n",
+  fprintf(pfile, "G:%s:%s:%s:%s:%d:\n",
    pango_font_description_to_string(G_CM_FONT_DESC),
-   hr_color_str, font_color_str, bg_color_str);
+   hr_color_str, font_color_str, bg_color_str, G_INVERT_COLORS);
 
   fclose(pfile);
   
@@ -126,7 +126,7 @@ static void init_pref( void ){
  
  char *homedir = getenv("HOME");
 
- char* pref_home = (char*) malloc(strlen(homedir)+strlen("/.spv/")+1); // 9 = 1+length("/.spv")
+ char* pref_home = (char*) malloc(strlen(homedir)+strlen("/.spv/")+1);
  strcpy(pref_home,homedir);
  strcat(pref_home, "/.spv/");
  
@@ -156,7 +156,11 @@ static void init_pref( void ){
   
   char *hr_color_str, *font_color_str, *bg_color_str;
   
+  #ifdef _WIN32 
+  G_CM_FONT_DESC = pango_font_description_from_string ("Microsoft JhengHei 11");
+  #else
   G_CM_FONT_DESC = pango_font_description_from_string ("Serif Bold 11");
+  #endif
  
   FILE * pfile = fopen(pref_name,"a");
   
@@ -216,9 +220,11 @@ static void init_pref( void ){
   G_CM_BG_COLOR->rc++;
   //build color table
   
-  fprintf(pfile, "G:%s:%s:%s:%s:\n",
+  G_INVERT_COLORS = FALSE;
+  
+  fprintf(pfile, "G:%s:%s:%s:%s:%d:\n",
    pango_font_description_to_string(G_CM_FONT_DESC),
-   hr_color_str, font_color_str, bg_color_str);
+   hr_color_str, font_color_str, bg_color_str, G_INVERT_COLORS);
   
   free(hr_color_str);
   free(font_color_str);
@@ -239,6 +245,15 @@ static void init_pref( void ){
   
   if(pfile == NULL)
    exit(EXIT_FAILURE);
+  
+  //old version
+  //G:Serif 11:#FFFF00FF:#000000FF:#FFFF0080:
+  //pch0     pch       pch1      pch2      pch3
+  
+  //new version
+  //G:Serif 11:#FFFF00FF:#000000FF:#FFFF0080:1:
+  //pch0     pch       pch1      pch2      pch3
+  //                                         pch4
   
   char *pch0 = NULL;
   
@@ -275,6 +290,11 @@ static void init_pref( void ){
    while( pch1 ){
     
     *pch1 = '\0';
+    
+    if( strlen(pch+1) == 1 ){
+     G_INVERT_COLORS = atoi(pch+1);
+     break;
+    }
     
     ct_tmp->next = (struct color_table*)malloc(sizeof(struct color_table));
       
@@ -384,6 +404,8 @@ static void init_pref( void ){
    
    free(bg_color_str);
    
+   G_INVERT_COLORS = FALSE;
+   
   }//end of if( !G_HR_COLOR && !G_CM_FONT_COLOR1 && !G_CM_BG_COLOR1 )
   
   fclose(pfile);
@@ -392,6 +414,7 @@ static void init_pref( void ){
  
  free(pref_home);
  free(pref_name);
+ 
 }
 
 int main(int argc, char* argv[]) {
@@ -399,6 +422,7 @@ int main(int argc, char* argv[]) {
  gtk_init(&argc, &argv);
     
  if( argc == 1 ){
+  
   GtkWidget *dialog;
   
   dialog = gtk_file_chooser_dialog_new("Open file", NULL,
@@ -411,24 +435,39 @@ int main(int argc, char* argv[]) {
   
   if(res == GTK_RESPONSE_ACCEPT){
    GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
-   init_pdf(gtk_file_chooser_get_filename(chooser));
+   gchar *file_name = gtk_file_chooser_get_filename(chooser);
+   init_pdf(file_name);
+   g_free(file_name);
+   gtk_widget_destroy(dialog);
   }
   else if ( res == GTK_RESPONSE_CANCEL || res == GTK_RESPONSE_DELETE_EVENT)
    exit(1);
-   
-  gtk_widget_destroy(dialog);
   
- }else if(argc == 2){
+ }
+ else if(argc == 2){
   
- char abs_path[100];
- #ifdef _WIN32
-  _fullpath(abs_path, argv[1], 100);
- #else
-  realpath(argv[1], abs_path);
- #endif
+  if( !strcmp(argv[1] , "-b") ){
+   init_pdf(NULL);
+  }
+  else{
+  
+   char abs_path[100];
+  
+   if( strlen(argv[1]) > 100 ){
+    printf("The length of file name is larger than 100.");
+    exit(1);
+   }
+  
+   #ifdef _WIN32
+   _fullpath(abs_path, argv[1], 100);
+   #else
+   realpath(argv[1], abs_path);
+   #endif
  
- init_pdf(abs_path);
- 
+   init_pdf(abs_path);
+  
+  }
+  
  }else if (argc != 2) {
   printf("Useage: ./spv [file name] or ./spv\n");
   return 1;
